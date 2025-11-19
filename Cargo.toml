@@ -5,6 +5,5 @@ edition = "2024"
 
 [dependencies]
 iced = { version = "0.13", features = ["debug", "canvas", "image", "tokio"] }
-
-rand = "0.8.3"
+rand = "0.9"
 tracing-subscriber = "0.3"

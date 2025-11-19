@@ -5,10 +5,7 @@ use iced::widget::canvas::stroke::{self, Stroke};
 use iced::widget::canvas::{Geometry, Path};
 use iced::widget::{canvas, image};
 use iced::window;
-use iced::{
-    Color, Element, Fill, Point, Rectangle, Renderer, Size, Subscription,
-    Theme, Vector,
-};
+use iced::{Color, Element, Fill, Point, Rectangle, Renderer, Size, Subscription, Theme, Vector};
 
 use std::time::Instant;
 use std::u8;
@@ -76,15 +73,9 @@ impl State {
         let size = window::Settings::default().size;
 
         State {
-            sun: image::Handle::from_bytes(
-                include_bytes!("../assets/sun.png").as_slice(),
-            ),
-            earth: image::Handle::from_bytes(
-                include_bytes!("../assets/earth.png").as_slice(),
-            ),
-            moon: image::Handle::from_bytes(
-                include_bytes!("../assets/moon.png").as_slice(),
-            ),
+            sun: image::Handle::from_bytes(include_bytes!("../assets/sun.png").as_slice()),
+            earth: image::Handle::from_bytes(include_bytes!("../assets/earth.png").as_slice()),
+            moon: image::Handle::from_bytes(include_bytes!("../assets/moon.png").as_slice()),
             space_cache: canvas::Cache::default(),
             system_cache: canvas::Cache::default(),
             start: now,
@@ -128,78 +119,16 @@ impl<Message> canvas::Program<Message> for State {
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
-        // use std::f32::consts::PI;
-
-        // let background =
-        //     self.space_cache.draw(renderer, bounds.size(), |frame| {
-        //         frame.fill_rectangle(Point::ORIGIN, frame.size(), Color::BLACK);
-
-        //         let stars = Path::new(|path| {
-        //             for (p, size) in &self.stars {
-        //                 path.rectangle(*p, Size::new(*size, *size));
-        //             }
-        //         });
-
-        //         frame.translate(frame.center() - Point::ORIGIN);
-        //         frame.fill(&stars, Color::WHITE);
-        //     });
-
-        // let system = self.system_cache.draw(renderer, bounds.size(), |frame| {
-        //     let center = frame.center();
-        //     frame.translate(Vector::new(center.x, center.y));
-
-        //     frame.draw_image(
-        //         Rectangle::with_radius(Self::SUN_RADIUS),
-        //         &self.sun,
-        //     );
-
-        //     let orbit = Path::circle(Point::ORIGIN, Self::ORBIT_RADIUS);
-        //     frame.stroke(
-        //         &orbit,
-        //         Stroke {
-        //             style: stroke::Style::Solid(Color::WHITE.scale_alpha(0.1)),
-        //             width: 1.0,
-        //             line_dash: canvas::LineDash {
-        //                 offset: 0,
-        //                 segments: &[3.0, 6.0],
-        //             },
-        //             ..Stroke::default()
-        //         },
-        //     );
-
-        //     let elapsed = self.now - self.start;
-        //     let rotation = (2.0 * PI / 60.0) * elapsed.as_secs() as f32
-        //         + (2.0 * PI / 60_000.0) * elapsed.subsec_millis() as f32;
-
-        //     frame.rotate(rotation);
-        //     frame.translate(Vector::new(Self::ORBIT_RADIUS, 0.0));
-
-        //     frame.draw_image(
-        //         Rectangle::with_radius(Self::EARTH_RADIUS),
-        //         canvas::Image::new(&self.earth).rotation(-rotation * 20.0),
-        //     );
-
-        //     frame.rotate(rotation * 10.0);
-        //     frame.translate(Vector::new(0.0, Self::MOON_DISTANCE));
-
-        //     frame.draw_image(
-        //         Rectangle::with_radius(Self::MOON_RADIUS),
-        //         &self.moon,
-        //     );
-        // });
-
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-                let center = frame.center();
-                frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(0, u8::MAX, 0));
+            let center = frame.center();
+            frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(0, u8::MAX, 0));
         });
 
         let my_food = self.system_cache.draw(renderer, bounds.size(), |frame| {
-                let center = frame.center();
-                frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(u8::MAX, 0, 0))});
-        vec![
-            // background,
-        // system,
-        my_snake, my_food]
+            let center = frame.center();
+            frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(u8::MAX, 0, 0))
+        });
+        vec![my_snake, my_food]
     }
 }
 
