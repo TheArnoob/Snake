@@ -42,7 +42,7 @@ impl SolarSystem {
         }
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_, Message> {
         canvas(&self.state).width(Fill).height(Fill).into()
     }
 
@@ -57,54 +57,21 @@ impl SolarSystem {
 
 #[derive(Debug)]
 struct State {
-    sun: image::Handle,
-    earth: image::Handle,
-    moon: image::Handle,
-    space_cache: canvas::Cache,
     system_cache: canvas::Cache,
-    start: Instant,
     now: Instant,
-    stars: Vec<(Point, f32)>,
 }
 
 impl State {
     pub fn new() -> State {
-        let now = Instant::now();
-        let size = window::Settings::default().size;
-
         State {
-            sun: image::Handle::from_bytes(include_bytes!("../assets/sun.png").as_slice()),
-            earth: image::Handle::from_bytes(include_bytes!("../assets/earth.png").as_slice()),
-            moon: image::Handle::from_bytes(include_bytes!("../assets/moon.png").as_slice()),
-            space_cache: canvas::Cache::default(),
             system_cache: canvas::Cache::default(),
-            start: now,
-            now,
-            stars: Self::generate_stars(size.width, size.height),
+            now: Instant::now(),
         }
     }
 
     pub fn update(&mut self, now: Instant) {
         self.now = now;
         self.system_cache.clear();
-    }
-
-    fn generate_stars(width: f32, height: f32) -> Vec<(Point, f32)> {
-        use rand::Rng;
-
-        let mut rng = rand::thread_rng();
-
-        (0..100)
-            .map(|_| {
-                (
-                    Point::new(
-                        rng.gen_range((-width / 2.0)..(width / 2.0)),
-                        rng.gen_range((-height / 2.0)..(height / 2.0)),
-                    ),
-                    rng.gen_range(0.5..1.0),
-                )
-            })
-            .collect()
     }
 }
 
@@ -128,7 +95,7 @@ impl<Message> canvas::Program<Message> for State {
             let center = frame.center();
             frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(u8::MAX, 0, 0))
         });
-        vec![my_snake, my_food]
+        vec![my_food, my_snake]
     }
 }
 
