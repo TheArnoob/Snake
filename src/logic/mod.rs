@@ -1,6 +1,5 @@
-use std::collections::VecDeque;
-
 use rand::Rng;
+use std::collections::VecDeque;
 mod grid;
 #[derive(Clone, Debug, Copy, PartialEq)]
 enum Direction {
@@ -11,6 +10,7 @@ enum Direction {
     None,
 }
 #[derive(Debug, PartialEq)]
+#[must_use]
 enum GameResult {
     NoOp,
     GameOver,
@@ -38,7 +38,6 @@ impl SnakeLogic {
     pub const MIN_HEIGHT: usize = 5;
     pub const MAX_WIDTH: usize = 150;
     pub const MAX_HEIGHT: usize = 150;
-
     pub fn new(width: usize, height: usize) -> Option<Self> {
         if width < Self::MIN_WIDTH
             || height < Self::MIN_HEIGHT
@@ -59,6 +58,7 @@ impl SnakeLogic {
 
     pub fn next_step(&mut self, direction: Direction) -> GameResult {
         let head = *self.position_snake.back().unwrap();
+        // if self.direction
         self.direction = direction;
         match direction {
             Direction::Right => {
@@ -78,12 +78,30 @@ impl SnakeLogic {
                 GameResult::NoOp
             }
             Direction::Up => {
-                todo!()
+                if head.1 == 0 {
+                    return GameResult::GameOver;
+                }
+
+                let new_head = (head.0, head.1 - 1);
+                if self.snake().contains(&new_head) {
+                    return GameResult::GameOver;
+                }
+                self.position_snake.push_back(new_head);
+
+                if new_head == self.food() {
+                    self.position_food = self.generate_food();
+                } else {
+                    self.position_snake.pop_front();
+                }
+
+                GameResult::NoOp
             }
             Direction::Left => {
                 todo!()
             }
-            Direction::Down => todo!(),
+            Direction::Down => {
+                todo!()
+            }
 
             Direction::None => GameResult::NoOp,
         }
@@ -103,7 +121,6 @@ impl SnakeLogic {
     pub fn direction(&self) -> &Direction {
         &self.direction
     }
-
     fn generate_food(&self) -> (usize, usize) {
         loop {
             let food_x = rand::rng().random_range(0..self.width) as usize;
@@ -120,16 +137,16 @@ impl SnakeLogic {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::*;
+    use super::*;
+
     #[test]
-    fn test() {
+    fn next_step_right() {
         {
             let mut logic = SnakeLogic::new(10, 10).unwrap();
             logic.position_snake = vec![(2, 0), (1, 0), (0, 0), (0, 1)].into();
 
             assert_eq!(logic.next_step(super::Direction::Right), GameResult::NoOp);
             assert_eq!(*logic.direction(), Direction::Right);
-            logic.next_step(super::Direction::None);
             logic.position_food = (1, 1);
             let x: VecDeque<(usize, usize)> = vec![(2, 0), (1, 0), (0, 0), (0, 1), (1, 1)].into();
             assert_eq!(*logic.snake(), x);
@@ -142,7 +159,8 @@ mod tests {
             assert_eq!(logic.width(), 10);
             assert_eq!(*logic.direction(), Direction::None);
 
-            logic.next_step(super::Direction::Right);
+            let next = logic.next_step(super::Direction::Right);
+            assert!(!next.is_over());
             assert_eq!(
                 *logic.snake(),
                 vec![(2usize, 2usize), (2, 1), (2, 0), (3, 0)]
@@ -168,6 +186,43 @@ mod tests {
         }
     }
 
+    #[test]
+    fn next_step_up() {
+        {
+            let mut logic = SnakeLogic::new(10, 10).unwrap();
+            logic.position_snake = vec![(0, 2), (1, 2), (2, 2), (2, 1)].into();
+            logic.position_food = (2, 0);
+            let next = logic.next_step(super::Direction::Up);
+            assert_eq!(*logic.direction(), Direction::Up);
+            assert!(!next.is_over());
+            assert_eq!(*logic.snake(), vec![(0, 2), (1, 2), (2, 2), (2, 1), (2, 0)]);
+        }
+        {
+            let mut logic = SnakeLogic::new(10, 10).unwrap();
+            logic.position_snake = vec![(2, 3), (2, 2), (2, 1), (2, 0)].into();
+
+            assert_eq!(logic.height(), 10);
+            assert_eq!(logic.width(), 10);
+            assert_eq!(*logic.direction(), Direction::None);
+            let next = logic.next_step(super::Direction::Up);
+            assert!(next.is_over());
+        }
+        {
+            // Initial state.
+            let mut logic = SnakeLogic::new(10, 10).unwrap();
+            logic.position_snake = vec![(2, 2), (2, 1), (2, 0), (3, 0)].into();
+            assert_eq!(*logic.snake(), vec![(2, 2), (2, 1), (2, 0), (3, 0)]);
+            // snake hits wall
+            logic.position_snake = vec![(1, 3), (1, 2), (1, 1), (1, 0)].into();
+            assert!(logic.next_step(super::Direction::Up).is_over());
+            // snake hits self.
+            logic.position_snake = vec![(2, 3), (2, 2), (1, 2), (1, 3)].into();
+            assert!(logic.next_step(super::Direction::Up).is_over());
+            // Normal
+            logic.position_snake = vec![(0, 2), (1, 2), (2, 2), (2, 1)].into();
+            assert!(!logic.next_step(super::Direction::Up).is_over());
+        }
+    }
     #[test]
     fn food_test() {
         let logic = SnakeLogic::new(10, 10).unwrap();
