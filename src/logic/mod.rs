@@ -1,7 +1,9 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
-mod grid;
+use crate::logic::grid::Grid;
+
+pub mod grid;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 /// This enum gives the direction.
@@ -36,8 +38,10 @@ impl GameResult {
 /// This function gives the direction.
 
 #[derive(Clone, Debug, PartialEq)]
-/// Snake Game State.
+/// The overall Snake Game State (SGS).
+
 struct SnakeLogic {
+    /// This is a vector showing all the squares where the snake is.
     position_snake: VecDeque<(usize, usize)>,
     position_food: (usize, usize),
     direction: Direction,
@@ -47,7 +51,6 @@ struct SnakeLogic {
     /// After you change direction, it is false. Default is true
     can_change_direction: bool,
 }
-
 impl SnakeLogic {
     pub const MIN_WIDTH: usize = 5;
     pub const MIN_HEIGHT: usize = 5;
@@ -74,7 +77,7 @@ impl SnakeLogic {
         })
     }
     /// This function changes [`self`] s direction.
-    /// It won't change the direction if you let it change to the opposite direction of if you let it change to the same direction it already has.
+    /// It won't change the direction if you let it change to the opposite direction or if you let it change to the same direction it already has.
     pub fn change_direction(&mut self, direction: Direction) {
         if !self.can_change_direction {
             return;

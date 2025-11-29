@@ -1,11 +1,8 @@
-mod logic;
+pub mod logic;
 
-use iced::mouse;
-use iced::widget::canvas::stroke::{self, Stroke};
-use iced::widget::canvas::{Geometry, Path};
-use iced::widget::{canvas, image};
+use iced::widget::canvas::{Frame, Geometry};
 use iced::window;
-use iced::{Color, Element, Fill, Point, Rectangle, Renderer, Size, Subscription, Theme, Vector};
+use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
 
 use std::time::Instant;
 use std::u8;
@@ -43,7 +40,10 @@ impl SolarSystem {
     }
 
     fn view(&self) -> Element<'_, Message> {
-        canvas(&self.state).width(Fill).height(Fill).into()
+        iced::widget::canvas(&self.state)
+            .width(Fill)
+            .height(Fill)
+            .into()
     }
 
     fn theme(&self) -> Theme {
@@ -57,14 +57,14 @@ impl SolarSystem {
 
 #[derive(Debug)]
 struct State {
-    system_cache: canvas::Cache,
+    system_cache: iced::widget::canvas::Cache,
     now: Instant,
 }
 
 impl State {
     pub fn new() -> State {
         State {
-            system_cache: canvas::Cache::default(),
+            system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
         }
     }
@@ -74,8 +74,27 @@ impl State {
         self.system_cache.clear();
     }
 }
+/// This function does a transformation from the logic system to the graphics and draws the square.
+/// Can draw a square in any color
+pub fn draw_snake_square(
+    frame: &mut Frame<Renderer>,
+    color: iced::Color,
+    (square_x, square_y): (usize, usize),
+    (game_height, game_square_height): (usize, usize),
+) {
+    let h_s = frame.height() as usize / game_square_height;
+    let w_s = frame.width() as usize / game_height;
+    let ix = square_x * w_s;
+    let iy = square_y * h_s;
+    let top_left = iced::Point {
+        x: ix as f32,
+        y: iy as f32,
+    };
 
-impl<Message> canvas::Program<Message> for State {
+    frame.fill_rectangle(top_left, Size::new(w_s as f32, h_s as f32), color);
+}
+
+impl<Message> iced::widget::canvas::Program<Message> for State {
     type State = ();
 
     fn draw(
@@ -84,18 +103,12 @@ impl<Message> canvas::Program<Message> for State {
         renderer: &Renderer,
         _theme: &Theme,
         bounds: Rectangle,
-        _cursor: mouse::Cursor,
+        _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            let center = frame.center();
-            frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(0, u8::MAX, 0));
+            draw_snake_square(frame, iced::Color::from_rgb8(0, 0, u8::MAX), (4, 0), (5, 7));
         });
-
-        let my_food = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            let center = frame.center();
-            frame.fill_rectangle(center, Size::new(20., 20.), Color::from_rgb8(u8::MAX, 0, 0))
-        });
-        vec![my_food, my_snake]
+        vec![my_snake]
     }
 }
 

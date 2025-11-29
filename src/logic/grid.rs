@@ -14,7 +14,6 @@ impl<T: Default + Clone> Grid<T> {
     }
     pub fn at(&self, x: usize, y: usize) -> Option<&T> {
         let index = self.coordinates_to_index(x, y)?;
-        // println!("{index}");
         return self.data.get(index);
     }
     pub fn at_mut(&mut self, x: usize, y: usize) -> Option<&mut T> {
