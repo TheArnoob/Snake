@@ -6,24 +6,24 @@ pub struct Grid<T> {
 impl<T: Default + Clone> Grid<T> {
     fn coordinates_to_index(&self, x: usize, y: usize) -> Option<usize> {
         if x >= self.width || y >= self.height {
-            return None;
+            None
         } else {
-            let result = ((x * self.height) + y) as usize;
-            return Some(result);
+            let result = (x * self.height) + y;
+            Some(result)
         }
     }
     pub fn at(&self, x: usize, y: usize) -> Option<&T> {
         let index = self.coordinates_to_index(x, y)?;
-        return self.data.get(index);
+        self.data.get(index)
     }
     pub fn at_mut(&mut self, x: usize, y: usize) -> Option<&mut T> {
         let index = self.coordinates_to_index(x, y)?;
-        return self.data.get_mut(index);
+        self.data.get_mut(index)
     }
 
     pub fn new(width: usize, height: usize) -> Grid<T> {
         let mut grid_vec = Vec::new();
-        grid_vec.resize((height * width) as usize, T::default());
+        grid_vec.resize(height * width, T::default());
         Grid {
             data: grid_vec,
             height,

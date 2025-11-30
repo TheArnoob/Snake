@@ -1,13 +1,11 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
-use crate::logic::grid::Grid;
-
 pub mod grid;
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 /// This enum gives the direction.
-enum Direction {
+pub enum Direction {
     Up,
     Down,
     Left,
@@ -18,7 +16,7 @@ enum Direction {
 #[derive(Debug, PartialEq)]
 #[must_use]
 /// This enum tells wether the game is over or not
-enum GameResult {
+pub enum GameResult {
     NoOp,
     GameOver,
 }
@@ -27,20 +25,15 @@ impl GameResult {
     /// Gives a [`bool`] .
     /// If the game is over, it gives [`true`].
     /// If the game is not over, it gives [`false`].
-    fn is_over(&self) -> bool {
-        if *self == GameResult::GameOver {
-            true
-        } else {
-            false
-        }
+    pub fn is_over(&self) -> bool {
+        *self == GameResult::GameOver
     }
 }
 /// This function gives the direction.
 
 #[derive(Clone, Debug, PartialEq)]
-/// The overall Snake Game State (SGS).
-
-struct SnakeLogic {
+/// The overall Snake Game State.
+pub struct SnakeLogic {
     /// This is a vector showing all the squares where the snake is.
     position_snake: VecDeque<(usize, usize)>,
     position_food: (usize, usize),
@@ -203,7 +196,7 @@ impl SnakeLogic {
             Direction::None => (),
         }
         self.can_change_direction = true;
-        return GameResult::NoOp;
+        GameResult::NoOp
     }
 
     pub fn snake(&self) -> &VecDeque<(usize, usize)> {

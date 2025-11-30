@@ -5,11 +5,11 @@ use iced::window;
 use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
 
 use std::time::Instant;
-use std::u8;
+
+use crate::logic::{GameResult, SnakeLogic};
 
 pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
-
     iced::application(
         "Snaaaaaaaaaaaaaake! ============================================================================================<",
         SolarSystem::update,
@@ -59,18 +59,33 @@ impl SolarSystem {
 struct State {
     system_cache: iced::widget::canvas::Cache,
     now: Instant,
+    snake_logic: logic::SnakeLogic,
+    last_logic_update: Instant,
+    last_game_result: GameResult,
 }
 
 impl State {
     pub fn new() -> State {
+        let snake_logic = SnakeLogic::new(5, 5).expect("Cannot fail");
         State {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
+            snake_logic,
+            last_logic_update: Instant::now(),
+            last_game_result: GameResult::NoOp,
         }
     }
 
     pub fn update(&mut self, now: Instant) {
         self.now = now;
+        {
+            // TODO: change to something dynamic
+            const TIMESTEP: std::time::Duration = std::time::Duration::from_secs(1);
+            if now - self.last_logic_update > TIMESTEP {
+                self.last_game_result = self.snake_logic.next_step();
+                self.last_logic_update = now;
+            }
+        }
         self.system_cache.clear();
     }
 }
@@ -80,10 +95,10 @@ pub fn draw_snake_square(
     frame: &mut Frame<Renderer>,
     color: iced::Color,
     (square_x, square_y): (usize, usize),
-    (game_height, game_square_height): (usize, usize),
+    (game_square_width, game_square_height): (usize, usize),
 ) {
     let h_s = frame.height() as usize / game_square_height;
-    let w_s = frame.width() as usize / game_height;
+    let w_s = frame.width() as usize / game_square_width;
     let ix = square_x * w_s;
     let iy = square_y * h_s;
     let top_left = iced::Point {
@@ -106,9 +121,32 @@ impl<Message> iced::widget::canvas::Program<Message> for State {
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            draw_snake_square(frame, iced::Color::from_rgb8(0, 0, u8::MAX), (4, 0), (5, 7));
+            for (snake_x, snake_y) in self.snake_logic.snake() {
+                draw_snake_square(
+                    frame,
+                    iced::Color::from_rgb8(0, u8::MAX, 0),
+                    (*snake_x, *snake_y),
+                    (self.snake_logic.width(), self.snake_logic.height()),
+                );
+            }
+            draw_snake_square(
+                frame,
+                iced::Color::from_rgb8(u8::MAX, 0, 0),
+                self.snake_logic.food(),
+                (self.snake_logic.width(), self.snake_logic.height()),
+            );
         });
         vec![my_snake]
+    }
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        _event: iced::widget::canvas::Event,
+        _bounds: Rectangle,
+        _cursor: iced::mouse::Cursor,
+    ) -> (iced::widget::canvas::event::Status, Option<Message>) {
+        (iced::widget::canvas::event::Status::Ignored, None)
     }
 }
 
