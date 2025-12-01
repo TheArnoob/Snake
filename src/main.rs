@@ -1,9 +1,11 @@
 pub mod logic;
 
+use iced::keyboard::Key;
+use iced::widget::canvas::event::Status::{Captured, Ignored};
 use iced::widget::canvas::{Frame, Geometry};
 use iced::window;
 use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
-
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::logic::{GameResult, SnakeLogic};
@@ -22,12 +24,18 @@ pub fn main() -> iced::Result {
 
 #[derive(Default)]
 struct SolarSystem {
-    state: State,
+    state: SnakeGUI,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
     Tick(Instant),
+}
+
+impl Default for Message {
+    fn default() -> Self {
+        Message::Tick(Instant::now())
+    }
 }
 
 impl SolarSystem {
@@ -56,23 +64,25 @@ impl SolarSystem {
 }
 
 #[derive(Debug)]
-struct State {
+struct SnakeGUI {
     system_cache: iced::widget::canvas::Cache,
     now: Instant,
-    snake_logic: logic::SnakeLogic,
+    snake_logic: Arc<Mutex<logic::SnakeLogic>>,
     last_logic_update: Instant,
     last_game_result: GameResult,
+    paused: Arc<Mutex<bool>>,
 }
 
-impl State {
-    pub fn new() -> State {
-        let snake_logic = SnakeLogic::new(5, 5).expect("Cannot fail");
-        State {
+impl SnakeGUI {
+    pub fn new() -> SnakeGUI {
+        let snake_logic = SnakeLogic::new(25, 25).expect("Cannot fail");
+        SnakeGUI {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
-            snake_logic,
+            snake_logic: Arc::new(Mutex::new(snake_logic)),
             last_logic_update: Instant::now(),
             last_game_result: GameResult::NoOp,
+            paused: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -80,9 +90,11 @@ impl State {
         self.now = now;
         {
             // TODO: change to something dynamic
-            const TIMESTEP: std::time::Duration = std::time::Duration::from_secs(1);
+            const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(150);
             if now - self.last_logic_update > TIMESTEP {
-                self.last_game_result = self.snake_logic.next_step();
+                if !*self.paused.lock().expect("Poisoned") {
+                    self.last_game_result = self.snake_logic.lock().expect("Poisoned").next_step();
+                }
                 self.last_logic_update = now;
             }
         }
@@ -90,7 +102,7 @@ impl State {
     }
 }
 /// This function does a transformation from the logic system to the graphics and draws the square.
-/// Can draw a square in any color
+/// Can draw a square in any color or size
 pub fn draw_snake_square(
     frame: &mut Frame<Renderer>,
     color: iced::Color,
@@ -100,7 +112,7 @@ pub fn draw_snake_square(
     let h_s = frame.height() as usize / game_square_height;
     let w_s = frame.width() as usize / game_square_width;
     let ix = square_x * w_s;
-    let iy = square_y * h_s;
+    let iy: usize = square_y * h_s;
     let top_left = iced::Point {
         x: ix as f32,
         y: iy as f32,
@@ -109,7 +121,7 @@ pub fn draw_snake_square(
     frame.fill_rectangle(top_left, Size::new(w_s as f32, h_s as f32), color);
 }
 
-impl<Message> iced::widget::canvas::Program<Message> for State {
+impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
     type State = ();
 
     fn draw(
@@ -121,19 +133,21 @@ impl<Message> iced::widget::canvas::Program<Message> for State {
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            for (snake_x, snake_y) in self.snake_logic.snake() {
+            let game_width = self.snake_logic.lock().expect("Poisoned").width();
+            let game_height = self.snake_logic.lock().expect("Poisoned").height();
+            for (snake_x, snake_y) in self.snake_logic.lock().expect("Poisoned").snake() {
                 draw_snake_square(
                     frame,
                     iced::Color::from_rgb8(0, u8::MAX, 0),
                     (*snake_x, *snake_y),
-                    (self.snake_logic.width(), self.snake_logic.height()),
+                    (game_width, game_height),
                 );
             }
             draw_snake_square(
                 frame,
                 iced::Color::from_rgb8(u8::MAX, 0, 0),
-                self.snake_logic.food(),
-                (self.snake_logic.width(), self.snake_logic.height()),
+                self.snake_logic.lock().expect("Poisoned").food(),
+                (game_width, game_height),
             );
         });
         vec![my_snake]
@@ -142,15 +156,68 @@ impl<Message> iced::widget::canvas::Program<Message> for State {
     fn update(
         &self,
         _state: &mut Self::State,
-        _event: iced::widget::canvas::Event,
+        event: iced::widget::canvas::Event,
         _bounds: Rectangle,
         _cursor: iced::mouse::Cursor,
-    ) -> (iced::widget::canvas::event::Status, Option<Message>) {
-        (iced::widget::canvas::event::Status::Ignored, None)
+    ) -> (iced::widget::canvas::event::Status, Option<T>) {
+        match event {
+            iced::widget::canvas::Event::Mouse(_event) => (Ignored, None),
+            iced::widget::canvas::Event::Touch(_event) => (Ignored, None),
+            iced::widget::canvas::Event::Keyboard(event) => match event {
+                iced::keyboard::Event::KeyPressed {
+                    key,
+                    modified_key: _modified_key,
+                    physical_key: _physical_key,
+                    location: _location,
+                    modifiers: _modifiers,
+                    text: _text,
+                } => {
+                    if key == Key::Named(iced::keyboard::key::Named::ArrowUp) {
+                        self.snake_logic
+                            .lock()
+                            .expect("Poisoned")
+                            .change_direction(logic::Direction::Up);
+
+                        (Captured, Some(T::default()))
+                    } else if key == Key::Named(iced::keyboard::key::Named::ArrowDown) {
+                        self.snake_logic
+                            .lock()
+                            .expect("Poisoned")
+                            .change_direction(logic::Direction::Down);
+
+                        (Captured, Some(T::default()))
+                    } else if key == Key::Named(iced::keyboard::key::Named::ArrowLeft) {
+                        self.snake_logic
+                            .lock()
+                            .expect("Poisoned")
+                            .change_direction(logic::Direction::Left);
+                        (Captured, Some(T::default()))
+                    } else if key == Key::Named(iced::keyboard::key::Named::ArrowRight) {
+                        self.snake_logic
+                            .lock()
+                            .expect("Poisoned")
+                            .change_direction(logic::Direction::Right);
+                        (Captured, Some(T::default()))
+                    } else if key == Key::Named(iced::keyboard::key::Named::Space) {
+                        let mut paused = self.paused.lock().expect("Poisoned");
+                        *paused = !*paused;
+                        (Captured, Some(T::default()))
+                    } else {
+                        (Ignored, None)
+                    }
+                }
+                iced::keyboard::Event::KeyReleased {
+                    key: _,
+                    location: _,
+                    modifiers: _,
+                } => (iced::widget::canvas::event::Status::Captured, None),
+                iced::keyboard::Event::ModifiersChanged(_modifiers) => (Ignored, None),
+            },
+        }
     }
 }
 
-impl Default for State {
+impl Default for SnakeGUI {
     fn default() -> Self {
         Self::new()
     }

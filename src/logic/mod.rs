@@ -1,8 +1,6 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
-pub mod grid;
-
 #[derive(Clone, Debug, Copy, PartialEq)]
 /// This enum gives the direction.
 pub enum Direction {
@@ -13,10 +11,11 @@ pub enum Direction {
     None,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 #[must_use]
 /// This enum tells wether the game is over or not
 pub enum GameResult {
+    #[default]
     NoOp,
     GameOver,
 }
@@ -31,26 +30,27 @@ impl GameResult {
 }
 /// This function gives the direction.
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 /// The overall Snake Game State.
 pub struct SnakeLogic {
-    /// This is a vector showing all the squares where the snake is.
+    /// **This is a vector showing all the squares where the snake is.**
     position_snake: VecDeque<(usize, usize)>,
     position_food: (usize, usize),
     direction: Direction,
     height: usize,
     width: usize,
-    /// A boolean that indicates wether you can change direction or not.
-    /// After you change direction, it is false. Default is true
+    /// **A boolean that indicates wether you can change direction or not.
+    /// After you change direction, it is false. Default is true**
     can_change_direction: bool,
 }
+
 impl SnakeLogic {
     pub const MIN_WIDTH: usize = 5;
     pub const MIN_HEIGHT: usize = 5;
     pub const MAX_WIDTH: usize = 150;
     pub const MAX_HEIGHT: usize = 150;
-    /// This function creates a new instance with the given height and width.
-    /// It will return [`None`] if the width or height are out of a specific boundary (MIN or MAX height or width).
+    /// **This function creates a new instance with the given height and width.
+    /// It will return [`None`] if the width or height are out of a specific boundary (MIN or MAX height or width).**
     pub fn new(width: usize, height: usize) -> Option<Self> {
         if width < Self::MIN_WIDTH
             || height < Self::MIN_HEIGHT
@@ -69,8 +69,8 @@ impl SnakeLogic {
             can_change_direction: true,
         })
     }
-    /// This function changes [`self`] s direction.
-    /// It won't change the direction if you let it change to the opposite direction or if you let it change to the same direction it already has.
+    /// **This function changes [`self`] s direction.
+    /// It won't change the direction if you let it change to the opposite direction or if you let it change to the same direction it already has.**
     pub fn change_direction(&mut self, direction: Direction) {
         if !self.can_change_direction {
             return;
@@ -126,8 +126,8 @@ impl SnakeLogic {
         }
         self.can_change_direction = false;
     }
-    /// This function moves the snake by one based on the direction of [`self`] and returns wether the game is over or not.
-    /// It also alters [`self`] s snake position and may alter food position.
+    /// **This function moves the snake by one based on the direction of [`self`] and returns wether the game is over or not.
+    /// It also alters [`self`] s snake position and may alter food position.**
     pub fn next_step(&mut self) -> GameResult {
         let head = *self.position_snake.back().unwrap();
         match self.direction {
@@ -219,7 +219,7 @@ impl SnakeLogic {
         &self.direction
     }
 
-    /// This generates the food in a random place.
+    /// **This generates the food in a random place.**
     fn generate_food(&self) -> (usize, usize) {
         loop {
             let food_x = rand::rng().random_range(0..self.width) as usize;
@@ -403,7 +403,6 @@ mod tests {
             assert_eq!(*logic.snake(), x);
             logic.position_food = (4, 3);
             logic.direction = super::Direction::Left;
-
             assert!(!logic.next_step().is_over());
             assert_eq!(*logic.snake(), vec![(3, 2), (3, 1), (2, 1), (1, 1), (0, 1)])
         }
