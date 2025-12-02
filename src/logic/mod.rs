@@ -59,11 +59,12 @@ impl SnakeLogic {
         {
             return None;
         }
-
+        let position_snake = vec![Self::generate_initial_snake(width, height)].into();
+        let position_food = Self::generate_food_inner(width, height, &position_snake);
         Some(SnakeLogic {
-            position_snake: vec![(0, 0)].into(),
+            position_snake,
             direction: Direction::None,
-            position_food: (1, 1),
+            position_food,
             height,
             width,
             can_change_direction: true,
@@ -220,13 +221,31 @@ impl SnakeLogic {
         &self.direction
     }
 
+    fn random_square(width: usize, height: usize) -> (usize, usize) {
+        let square_x = rand::rng().random_range(0..width) as usize;
+        let square_y = rand::rng().random_range(0..height) as usize;
+        return (square_x, square_y);
+    }
+
+    /// **This generates the snake in a random place.**
+    fn generate_initial_snake(width: usize, height: usize) -> (usize, usize) {
+        Self::random_square(width, height)
+    }
+
     /// **This generates the food in a random place.**
     fn generate_food(&self) -> (usize, usize) {
-        loop {
-            let food_x = rand::rng().random_range(0..self.width) as usize;
-            let food_y = rand::rng().random_range(0..self.height) as usize;
+        Self::generate_food_inner(self.width, self.height, self.snake())
+    }
 
-            if self.snake().contains(&(food_x, food_y)) {
+    /// **This generates the food in a random place.**
+    fn generate_food_inner(
+        width: usize,
+        height: usize,
+        snake: &VecDeque<(usize, usize)>,
+    ) -> (usize, usize) {
+        loop {
+            let (food_x, food_y) = Self::random_square(width, height);
+            if snake.contains(&(food_x, food_y)) {
                 continue;
             } else {
                 return (food_x, food_y);
@@ -243,10 +262,10 @@ mod tests {
         {
             let mut logic = SnakeLogic::new(10, 10).unwrap();
             logic.position_snake = vec![(2, 0), (1, 0), (0, 0), (0, 1)].into();
+            logic.position_food = (1, 1);
             logic.direction = super::Direction::Right;
             assert_eq!(logic.next_step(), GameResult::NoOp);
             assert_eq!(*logic.direction(), Direction::Right);
-            logic.position_food = (1, 1);
             let x: VecDeque<(usize, usize)> = vec![(2, 0), (1, 0), (0, 0), (0, 1), (1, 1)].into();
             assert_eq!(*logic.snake(), x);
         }
@@ -396,10 +415,9 @@ mod tests {
             let mut logic = SnakeLogic::new(5, 5).unwrap();
             logic.position_snake = vec![(3, 3), (3, 2), (3, 1), (2, 1)].into();
             logic.direction = super::Direction::Left;
-
+            logic.position_food = (1, 1);
             assert_eq!(logic.next_step(), GameResult::NoOp);
             assert_eq!(*logic.direction(), Direction::Left);
-            logic.position_food = (1, 1);
             let x: VecDeque<(usize, usize)> = vec![(3, 3), (3, 2), (3, 1), (2, 1), (1, 1)].into();
             assert_eq!(*logic.snake(), x);
             logic.position_food = (4, 3);

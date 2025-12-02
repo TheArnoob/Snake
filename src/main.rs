@@ -49,7 +49,7 @@ impl SnakeGUI {
                 self.now = now;
                 {
                     // TODO: change to something dynamic
-                    const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(150);
+                    const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(100);
                     if now - self.last_logic_update > TIMESTEP {
                         if !*self.paused.lock().expect("Poisoned") {
                             self.last_game_result =
