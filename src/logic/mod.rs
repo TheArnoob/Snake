@@ -75,6 +75,7 @@ impl SnakeLogic {
         if !self.can_change_direction {
             return;
         }
+
         match self.direction {
             Direction::Up => match direction {
                 Direction::Up => return,

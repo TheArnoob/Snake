@@ -14,17 +14,21 @@ pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
     iced::application(
         "Snaaaaaaaaaaaaaake! ============================================================================================<",
-        SolarSystem::update,
-        SolarSystem::view,
+        SnakeGUI::update,
+        SnakeGUI::view,
     )
-    .subscription(SolarSystem::subscription)
-    .theme(SolarSystem::theme)
+    .subscription(SnakeGUI::subscription)
+    .theme(SnakeGUI::theme)
     .run()
 }
 
-#[derive(Default)]
-struct SolarSystem {
-    state: SnakeGUI,
+struct SnakeGUI {
+    system_cache: iced::widget::canvas::Cache,
+    now: Instant,
+    snake_logic: Arc<Mutex<logic::SnakeLogic>>,
+    last_logic_update: Instant,
+    last_game_result: GameResult,
+    paused: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,20 +42,29 @@ impl Default for Message {
     }
 }
 
-impl SolarSystem {
+impl SnakeGUI {
     fn update(&mut self, message: Message) {
         match message {
-            Message::Tick(instant) => {
-                self.state.update(instant);
+            Message::Tick(now) => {
+                self.now = now;
+                {
+                    // TODO: change to something dynamic
+                    const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(150);
+                    if now - self.last_logic_update > TIMESTEP {
+                        if !*self.paused.lock().expect("Poisoned") {
+                            self.last_game_result =
+                                self.snake_logic.lock().expect("Poisoned").next_step();
+                        }
+                        self.last_logic_update = now;
+                    }
+                }
+                self.system_cache.clear();
             }
         }
     }
 
     fn view(&self) -> Element<'_, Message> {
-        iced::widget::canvas(&self.state)
-            .width(Fill)
-            .height(Fill)
-            .into()
+        iced::widget::canvas(self).width(Fill).height(Fill).into()
     }
 
     fn theme(&self) -> Theme {
@@ -61,22 +74,10 @@ impl SolarSystem {
     fn subscription(&self) -> Subscription<Message> {
         window::frames().map(Message::Tick)
     }
-}
 
-#[derive(Debug)]
-struct SnakeGUI {
-    system_cache: iced::widget::canvas::Cache,
-    now: Instant,
-    snake_logic: Arc<Mutex<logic::SnakeLogic>>,
-    last_logic_update: Instant,
-    last_game_result: GameResult,
-    paused: Arc<Mutex<bool>>,
-}
-
-impl SnakeGUI {
-    pub fn new() -> SnakeGUI {
+    pub fn new() -> Self {
         let snake_logic = SnakeLogic::new(25, 25).expect("Cannot fail");
-        SnakeGUI {
+        Self {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
             snake_logic: Arc::new(Mutex::new(snake_logic)),
@@ -84,21 +85,6 @@ impl SnakeGUI {
             last_game_result: GameResult::NoOp,
             paused: Arc::new(Mutex::new(false)),
         }
-    }
-
-    pub fn update(&mut self, now: Instant) {
-        self.now = now;
-        {
-            // TODO: change to something dynamic
-            const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(150);
-            if now - self.last_logic_update > TIMESTEP {
-                if !*self.paused.lock().expect("Poisoned") {
-                    self.last_game_result = self.snake_logic.lock().expect("Poisoned").next_step();
-                }
-                self.last_logic_update = now;
-            }
-        }
-        self.system_cache.clear();
     }
 }
 /// This function does a transformation from the logic system to the graphics and draws the square.
