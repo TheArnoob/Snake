@@ -1,5 +1,5 @@
-pub mod logic;
-
+mod logic;
+use crate::logic::game::SnakeGame;
 use iced::keyboard::Key;
 use iced::widget::canvas::event::Status::{Captured, Ignored};
 use iced::widget::canvas::{Frame, Geometry};
@@ -8,7 +8,15 @@ use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::logic::{GameResult, SnakeLogic};
+#[derive(Clone, Debug, Copy, PartialEq)]
+/// This enum gives the direction.
+pub enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+    None,
+}
 
 pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
@@ -25,10 +33,7 @@ pub fn main() -> iced::Result {
 struct SnakeGUI {
     system_cache: iced::widget::canvas::Cache,
     now: Instant,
-    snake_logic: Arc<Mutex<logic::SnakeLogic>>,
-    last_logic_update: Instant,
-    last_game_result: GameResult,
-    paused: Arc<Mutex<bool>>,
+    snake_game: Arc<Mutex<SnakeGame>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,17 +52,7 @@ impl SnakeGUI {
         match message {
             Message::Tick(now) => {
                 self.now = now;
-                {
-                    // TODO: change to something dynamic
-                    const TIMESTEP: std::time::Duration = std::time::Duration::from_millis(100);
-                    if now - self.last_logic_update > TIMESTEP {
-                        if !*self.paused.lock().expect("Poisoned") {
-                            self.last_game_result =
-                                self.snake_logic.lock().expect("Poisoned").next_step();
-                        }
-                        self.last_logic_update = now;
-                    }
-                }
+                self.snake_game.lock().expect("Poisoned").update(now);
                 self.system_cache.clear();
             }
         }
@@ -76,14 +71,11 @@ impl SnakeGUI {
     }
 
     pub fn new() -> Self {
-        let snake_logic = SnakeLogic::new(25, 25).expect("Cannot fail");
+        let snake_logic = SnakeGame::new();
         Self {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
-            snake_logic: Arc::new(Mutex::new(snake_logic)),
-            last_logic_update: Instant::now(),
-            last_game_result: GameResult::NoOp,
-            paused: Arc::new(Mutex::new(false)),
+            snake_game: Arc::new(Mutex::new(snake_logic)),
         }
     }
 }
@@ -119,9 +111,9 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            let game_width = self.snake_logic.lock().expect("Poisoned").width();
-            let game_height = self.snake_logic.lock().expect("Poisoned").height();
-            for (snake_x, snake_y) in self.snake_logic.lock().expect("Poisoned").snake() {
+            let game_width = self.snake_game.lock().expect("Poisoned").width();
+            let game_height = self.snake_game.lock().expect("Poisoned").height();
+            for (snake_x, snake_y) in self.snake_game.lock().expect("Poisoned").snake() {
                 draw_snake_square(
                     frame,
                     iced::Color::from_rgb8(0, u8::MAX, 0),
@@ -132,7 +124,7 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
             draw_snake_square(
                 frame,
                 iced::Color::from_rgb8(u8::MAX, 0, 0),
-                self.snake_logic.lock().expect("Poisoned").food(),
+                self.snake_game.lock().expect("Poisoned").food(),
                 (game_width, game_height),
             );
         });
@@ -159,34 +151,31 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                     text: _text,
                 } => {
                     if key == Key::Named(iced::keyboard::key::Named::ArrowUp) {
-                        self.snake_logic
-                            .lock()
-                            .expect("Poisoned")
-                            .change_direction(logic::Direction::Up);
+                        let mut logic = self.snake_game.lock().expect("Poisoned");
+
+                        logic.change_direction(Direction::Up);
 
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowDown) {
-                        self.snake_logic
-                            .lock()
-                            .expect("Poisoned")
-                            .change_direction(logic::Direction::Down);
+                        let mut logic = self.snake_game.lock().expect("Poisoned");
+
+                        logic.change_direction(Direction::Down);
 
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowLeft) {
-                        self.snake_logic
-                            .lock()
-                            .expect("Poisoned")
-                            .change_direction(logic::Direction::Left);
+                        let mut logic = self.snake_game.lock().expect("Poisoned");
+
+                        logic.change_direction(Direction::Left);
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowRight) {
-                        self.snake_logic
-                            .lock()
-                            .expect("Poisoned")
-                            .change_direction(logic::Direction::Right);
+                        let mut logic = self.snake_game.lock().expect("Poisoned");
+
+                        logic.change_direction(Direction::Right);
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::Space) {
-                        let mut paused = self.paused.lock().expect("Poisoned");
-                        *paused = !*paused;
+                        let mut logic = self.snake_game.lock().expect("Poisoned");
+                        let logic_not_paused = !logic.is_paused();
+                        logic.set_paused(logic_not_paused);
                         (Captured, Some(T::default()))
                     } else {
                         (Ignored, None)

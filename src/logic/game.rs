@@ -1,0 +1,75 @@
+use crate::Direction;
+use crate::logic::internal::{GameResult, SnakeLogic};
+use std::{
+    collections::VecDeque,
+    time::{Duration, Instant},
+};
+#[derive(Debug, Clone)]
+pub struct SnakeGame {
+    snake_logic: SnakeLogic,
+    now: Instant,
+    paused: bool,
+    last_logic_update: Instant,
+    last_game_result: GameResult,
+}
+
+impl Default for SnakeGame {
+    fn default() -> Self {
+        SnakeGame::new()
+    }
+}
+
+impl SnakeGame {
+    pub const TIMESTEP: Duration = Duration::from_millis(100);
+
+    pub fn new() -> SnakeGame {
+        let snake_logic = SnakeLogic::new(25, 25).expect("Cannot fail");
+        let now = Instant::now();
+
+        SnakeGame {
+            snake_logic,
+            now,
+            paused: false,
+            last_logic_update: Instant::now(),
+            last_game_result: GameResult::NoOp,
+        }
+    }
+
+    pub fn height(&self) -> usize {
+        self.snake_logic.height()
+    }
+
+    pub fn width(&self) -> usize {
+        self.snake_logic.width()
+    }
+
+    pub fn food(&self) -> (usize, usize) {
+        self.snake_logic.food()
+    }
+
+    pub fn snake(&self) -> &VecDeque<(usize, usize)> {
+        self.snake_logic.snake()
+    }
+
+    pub fn change_direction(&mut self, direction: Direction) {
+        self.snake_logic.change_direction(direction)
+    }
+
+    pub fn set_paused(&mut self, new_paused: bool) {
+        self.paused = new_paused;
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused
+    }
+
+    pub fn update(&mut self, now: Instant) {
+        self.now = now;
+        if now - self.last_logic_update > Self::TIMESTEP {
+            if !self.paused {
+                self.last_game_result = self.snake_logic.next_step();
+            }
+            self.last_logic_update = now;
+        }
+    }
+}
