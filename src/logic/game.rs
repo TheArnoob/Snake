@@ -1,5 +1,6 @@
 use crate::Direction;
-use crate::logic::internal::{GameResult, SnakeLogic};
+use crate::logic::internal::GameResult;
+use crate::logic::snakelogic::SnakeLogic;
 use std::{
     collections::VecDeque,
     time::{Duration, Instant},
@@ -54,7 +55,6 @@ impl SnakeGame {
     pub fn change_direction(&mut self, direction: Direction) {
         self.snake_logic.change_direction(direction)
     }
-
     pub fn set_paused(&mut self, new_paused: bool) {
         self.paused = new_paused;
     }
@@ -63,13 +63,24 @@ impl SnakeGame {
         self.paused
     }
 
+    pub fn is_over(&self) -> bool {
+        self.last_game_result == GameResult::GameOver
+    }
+
     pub fn update(&mut self, now: Instant) {
+        if self.last_game_result.is_over() {
+            return;
+        }
         self.now = now;
         if now - self.last_logic_update > Self::TIMESTEP {
             if !self.paused {
                 self.last_game_result = self.snake_logic.next_step();
             }
             self.last_logic_update = now;
+        }
+
+        if self.snake().len() == (self.height() * self.width()) {
+            println!("You Win! A very rare win!")
         }
     }
 }

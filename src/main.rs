@@ -44,6 +44,7 @@ impl SnakeGUI {
         match message {
             Message::Tick(now) => {
                 self.now = now;
+
                 self.snake_game.lock().expect("Poisoned").update(now);
                 self.system_cache.clear();
             }
@@ -143,32 +144,37 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                     text: _text,
                 } => {
                     if key == Key::Named(iced::keyboard::key::Named::ArrowUp) {
-                        let mut logic = self.snake_game.lock().expect("Poisoned");
+                        let mut game = self.snake_game.lock().expect("Poisoned");
 
-                        logic.change_direction(Direction::Up);
+                        game.change_direction(Direction::Up);
 
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowDown) {
-                        let mut logic = self.snake_game.lock().expect("Poisoned");
+                        let mut game = self.snake_game.lock().expect("Poisoned");
 
-                        logic.change_direction(Direction::Down);
+                        game.change_direction(Direction::Down);
 
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowLeft) {
-                        let mut logic = self.snake_game.lock().expect("Poisoned");
+                        let mut game = self.snake_game.lock().expect("Poisoned");
 
-                        logic.change_direction(Direction::Left);
+                        game.change_direction(Direction::Left);
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowRight) {
-                        let mut logic = self.snake_game.lock().expect("Poisoned");
+                        let mut game = self.snake_game.lock().expect("Poisoned");
 
-                        logic.change_direction(Direction::Right);
+                        game.change_direction(Direction::Right);
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::Space) {
-                        let mut logic = self.snake_game.lock().expect("Poisoned");
-                        let logic_not_paused = !logic.is_paused();
-                        logic.set_paused(logic_not_paused);
-                        (Captured, Some(T::default()))
+                        let mut game = self.snake_game.lock().expect("Poisoned");
+                        if game.is_over() {
+                            *game = SnakeGame::new();
+                            (Captured, Some(T::default()))
+                        } else {
+                            let logic_not_paused = !game.is_paused();
+                            game.set_paused(logic_not_paused);
+                            (Captured, Some(T::default()))
+                        }
                     } else {
                         (Ignored, None)
                     }
