@@ -1,22 +1,14 @@
 mod logic;
+
 use crate::logic::game::SnakeGame;
 use iced::keyboard::Key;
 use iced::widget::canvas::event::Status::{Captured, Ignored};
 use iced::widget::canvas::{Frame, Geometry};
 use iced::window;
 use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
+use logic::Direction;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-
-#[derive(Clone, Debug, Copy, PartialEq)]
-/// This enum gives the direction.
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-    None,
-}
 
 pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
