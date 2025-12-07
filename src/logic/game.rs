@@ -14,17 +14,11 @@ pub struct SnakeGame {
     last_game_result: GameResult,
 }
 
-impl Default for SnakeGame {
-    fn default() -> Self {
-        SnakeGame::new()
-    }
-}
-
 impl SnakeGame {
     pub const TIMESTEP: Duration = Duration::from_millis(100);
 
-    pub fn new() -> SnakeGame {
-        let snake_logic = SnakeLogic::new(25, 25).expect("Cannot fail");
+    pub fn new(width: usize, height: usize) -> SnakeGame {
+        let snake_logic = SnakeLogic::new(width, height).expect("Cannot fail");
         let now = Instant::now();
 
         SnakeGame {
@@ -63,6 +57,10 @@ impl SnakeGame {
         self.paused
     }
 
+    pub fn score(&self) -> usize {
+        self.snake().len()
+    }
+
     pub fn is_over(&self) -> bool {
         self.last_game_result == GameResult::GameOver
     }
@@ -80,7 +78,7 @@ impl SnakeGame {
         }
 
         if self.snake().len() == (self.height() * self.width()) {
-            println!("You Win! A very rare win!")
+            println!("You Win! Great job!")
         }
     }
 }

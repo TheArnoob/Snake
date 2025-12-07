@@ -3,9 +3,9 @@ mod logic;
 use crate::logic::game::SnakeGame;
 use iced::keyboard::Key;
 use iced::widget::canvas::event::Status::{Captured, Ignored};
-use iced::widget::canvas::{Frame, Geometry};
+use iced::widget::canvas::{Frame, Geometry, Text};
 use iced::window;
-use iced::{Element, Fill, Rectangle, Renderer, Size, Subscription, Theme};
+use iced::{Element, Fill, Font, Pixels, Rectangle, Renderer, Size, Subscription, Theme};
 use logic::Direction;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -44,7 +44,6 @@ impl SnakeGUI {
         match message {
             Message::Tick(now) => {
                 self.now = now;
-
                 self.snake_game.lock().expect("Poisoned").update(now);
                 self.system_cache.clear();
             }
@@ -64,7 +63,7 @@ impl SnakeGUI {
     }
 
     pub fn new() -> Self {
-        let snake_logic = SnakeGame::new();
+        let snake_logic = SnakeGame::new(25, 25);
         Self {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
@@ -103,6 +102,11 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
         bounds: Rectangle,
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
+        let horizontal_alignment = iced::alignment::Horizontal::Center;
+        let vertical_alignment = iced::alignment::Vertical::Center;
+        let shaping = iced::widget::text::Shaping::Basic;
+        let line_height = iced::widget::text::LineHeight::Absolute(25.into());
+
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
             let game_width = self.snake_game.lock().expect("Poisoned").width();
             let game_height = self.snake_game.lock().expect("Poisoned").height();
@@ -120,7 +124,34 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                 self.snake_game.lock().expect("Poisoned").food(),
                 (game_width, game_height),
             );
+            let size = Pixels::from(25.);
+            let font = Font {
+                family: iced::font::Family::default(),
+                weight: iced::font::Weight::Medium,
+                stretch: iced::font::Stretch::Normal,
+                style: iced::font::Style::Normal,
+            };
+
+            if self.snake_game.lock().expect("Poisoned").is_over() {
+                let game_over = Text {
+                    content: format!(
+                        "Game Over. Press space to start a new game. Your score: {:?}",
+                        self.snake_game.lock().expect("Poisoned").score()
+                    ),
+                    position: frame.center(),
+                    color: iced::Color::from_rgb8(255, 0, 0),
+                    size,
+                    line_height,
+                    font,
+                    horizontal_alignment,
+                    vertical_alignment,
+                    shaping,
+                };
+
+                frame.fill_text(game_over);
+            }
         });
+
         vec![my_snake]
     }
 
@@ -168,7 +199,7 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                     } else if key == Key::Named(iced::keyboard::key::Named::Space) {
                         let mut game = self.snake_game.lock().expect("Poisoned");
                         if game.is_over() {
-                            *game = SnakeGame::new();
+                            *game = SnakeGame::new(game.width(), game.height());
                             (Captured, Some(T::default()))
                         } else {
                             let logic_not_paused = !game.is_paused();
