@@ -82,7 +82,7 @@ pub fn draw_snake_square(
     let h_s = frame.height() as usize / game_square_height;
     let w_s = frame.width() as usize / game_square_width;
     let ix = square_x * w_s;
-    let iy: usize = square_y * h_s;
+    let iy = square_y * h_s;
     let top_left = iced::Point {
         x: ix as f32,
         y: iy as f32,
@@ -131,6 +131,23 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                 stretch: iced::font::Stretch::Normal,
                 style: iced::font::Style::Normal,
             };
+
+            let score = Text {
+                content: format!(
+                    "Your score: {:?}",
+                    self.snake_game.lock().expect("Poisoned").score()
+                ),
+                position: iced::Point { x: 500., y: 725. },
+                color: iced::Color::from_rgb8(255, 0, 0),
+                size,
+                line_height,
+                font,
+                horizontal_alignment,
+                vertical_alignment,
+                shaping,
+            };
+
+            frame.fill_text(score);
 
             if self.snake_game.lock().expect("Poisoned").is_over() {
                 let game_over = Text {
