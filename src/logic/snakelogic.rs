@@ -4,7 +4,7 @@ use rand::Rng;
 
 use crate::logic::{Direction, internal::GameResult};
 
-const DEFAULT_GROWTH: usize = 2;
+const DEFAULT_GROWTH: usize = 4;
 
 #[derive(Debug, PartialEq, Clone)]
 /// The overall Snake Game State.
@@ -111,94 +111,50 @@ impl SnakeLogic {
         self.can_change_direction = false;
     }
 
-    /// **This function moves the snake by the number of steps in the args based on the direction of ** [`self`] ** and returns wether the game is over or not.
-    /// It also alters **[`self`] **s snake position and may alter food position.**
-    pub fn next_step(&mut self) -> GameResult {
+    fn new_head(&self) -> Option<(usize, usize)> {
         let head = *self.position_snake.back().unwrap();
+        // TODO: change to match
+        let new_head = match self.direction {
+            Direction::Up => (head.0, head.1.checked_sub(1)?),
+            Direction::Down => (head.0, head.1 + 1),
+            Direction::Left => (head.0.checked_sub(1)?, head.1),
+            Direction::Right => (head.0 + 1, head.1),
+            Direction::None => head,
+        };
 
-        match self.direction {
-            Direction::Right => {
-                let new_head = (head.0 + 1, head.1);
-                if new_head.0 >= self.width() || self.snake().contains(&new_head) {
-                    return GameResult::GameOver;
-                }
-                self.position_snake.push_back(new_head);
-                if self.amount_of_growth == 0 {
-                    self.position_snake.pop_front();
-                } else {
-                    self.amount_of_growth -= 1;
-                }
-
-                if new_head == self.food() {
-                    self.amount_of_growth += DEFAULT_GROWTH;
-                    self.position_food = self.generate_food();
-                }
-            }
-            Direction::Up => {
-                if head.1 == 0 {
-                    return GameResult::GameOver;
-                }
-
-                let new_head = (head.0, head.1 - 1);
-                if self.snake().contains(&new_head) {
-                    return GameResult::GameOver;
-                }
-
-                self.position_snake.push_back(new_head);
-                if self.amount_of_growth == 0 {
-                    self.position_snake.pop_front();
-                } else {
-                    self.amount_of_growth -= 1;
-                }
-
-                if new_head == self.food() {
-                    self.amount_of_growth += DEFAULT_GROWTH;
-                    self.position_food = self.generate_food();
-                }
-            }
-            Direction::Down => {
-                let new_head = (head.0, head.1 + 1);
-                if new_head.1 >= self.width() || self.snake().contains(&new_head) {
-                    return GameResult::GameOver;
-                }
-                self.position_snake.push_back(new_head);
-                if self.amount_of_growth == 0 {
-                    self.position_snake.pop_front();
-                } else {
-                    self.amount_of_growth -= 1;
-                }
-
-                if new_head == self.food() {
-                    self.amount_of_growth += DEFAULT_GROWTH;
-                    self.position_food = self.generate_food();
-                }
-            }
-            Direction::Left => {
-                if head.0 == 0 {
-                    return GameResult::GameOver;
-                }
-
-                let new_head = (head.0 - 1, head.1);
-                if self.snake().contains(&new_head) {
-                    return GameResult::GameOver;
-                }
-
-                self.position_snake.push_back(new_head);
-                if self.amount_of_growth == 0 {
-                    self.position_snake.pop_front();
-                } else {
-                    self.amount_of_growth -= 1;
-                }
-
-                if new_head == self.food() {
-                    self.amount_of_growth += DEFAULT_GROWTH;
-                    self.position_food = self.generate_food();
-                }
-            }
-            Direction::None => (),
+        if new_head.0 >= self.width() || new_head.1 >= self.height() {
+            return None;
         }
-        self.can_change_direction = true;
+
+        Some(new_head)
+    }
+
+    fn abstract_next_step(&mut self) -> GameResult {
+        let new_head = match self.new_head() {
+            Some(h) => h,
+            None => return GameResult::GameOver,
+        };
+        if self.snake().contains(&new_head) && self.direction != Direction::None {
+            return GameResult::GameOver;
+        }
+        self.position_snake.push_back(new_head);
+        if self.amount_of_growth == 0 {
+            self.position_snake.pop_front();
+        } else {
+            self.amount_of_growth -= 1;
+        }
+
+        if new_head == self.food() {
+            self.amount_of_growth += self.growth_per_food;
+            self.position_food = self.generate_food();
+        }
         GameResult::NoOp
+    }
+    /// **This function moves the snake by the number of steps in the args based on the direction of** [`self`] **and returns wether the game is over or not.
+    /// It also alters** [`self`] **s snake position and may alter food position.**
+    pub fn next_step(&mut self) -> GameResult {
+        self.can_change_direction = true;
+        return self.abstract_next_step();
     }
 
     pub fn snake(&self) -> &VecDeque<(usize, usize)> {
@@ -291,19 +247,27 @@ mod tests {
             logic.growth_per_food = 2;
 
             logic.direction = Direction::Left;
-            logic.position_snake = vec![(25, 25)].into();
+            logic.position_snake = vec![(24, 24)].into();
+            logic.position_food = (23, 24);
             assert!(!logic.next_step().is_over());
-            assert_eq!(*logic.snake(), [(24, 25)]);
-            logic.position_snake = vec![(25, 25)].into();
-            logic.position_food = (24, 25);
+            assert_eq!(*logic.snake(), [(23, 24)]);
+            logic.position_snake = vec![(24, 24)].into();
+            logic.position_food = (0, 0);
             assert!(!logic.next_step().is_over());
-            assert_eq!(*logic.snake(), [(24, 25)]);
+            assert_eq!(*logic.snake(), [(24, 24), (23, 24)]);
+            // println!("State: {logic:?}");
+
             assert!(!logic.next_step().is_over());
-            assert_eq!(*logic.snake(), [(24, 25), (23, 25)]);
+            assert_eq!(*logic.snake(), [(24, 24), (23, 24), (22, 24)]);
+            // println!("State: {logic:?}");
+
             assert!(!logic.next_step().is_over());
-            assert_eq!(*logic.snake(), [(24, 25), (23, 25), (22, 25)]);
+            assert_eq!(logic.amount_of_growth, 0);
+            assert_eq!(*logic.snake(), [(23, 24), (22, 24), (21, 24)]);
+            // println!("State: {logic:?}");
             assert!(!logic.next_step().is_over());
-            assert_eq!(*logic.snake(), [(23, 25), (22, 25), (21, 25)])
+
+            assert_eq!(*logic.snake(), [(22, 24), (21, 24), (20, 24)])
         }
         {
             {
@@ -339,19 +303,27 @@ mod tests {
         logic.growth_per_food = 2;
 
         logic.direction = Direction::Up;
-        logic.position_snake = vec![(25, 25)].into();
+        logic.position_snake = vec![(24, 24)].into();
+
         assert!(!logic.next_step().is_over());
-        assert_eq!(*logic.snake(), [(25usize, 24usize)]);
-        logic.position_snake = vec![(25, 25)].into();
-        logic.position_food = (25, 24);
+        assert_eq!(*logic.snake(), [(24, 23)]);
+        logic.position_snake = vec![(24, 24)].into();
+        logic.position_food = (24, 23);
+
         assert!(!logic.next_step().is_over());
-        assert_eq!(*logic.snake(), [(25, 24)]);
+        assert_eq!(*logic.snake(), [(24, 23)]);
+        logic.position_food = (24, 23);
+
         assert!(!logic.next_step().is_over());
-        assert_eq!(*logic.snake(), [(25, 24), (25, 23)]);
+        assert_eq!(*logic.snake(), [(24, 23), (24, 22)]);
+
+        logic.position_food = (0, 0);
+
         assert!(!logic.next_step().is_over());
-        assert_eq!(*logic.snake(), [(25, 24), (25, 23), (25, 22)]);
+        assert_eq!(*logic.snake(), [(24, 23), (24, 22), (24, 21)]);
+
         assert!(!logic.next_step().is_over());
-        assert_eq!(*logic.snake(), [(25, 23), (25, 22), (25, 21)])
+        assert_eq!(*logic.snake(), [(24, 22), (24, 21), (24, 20)])
     }
 
     #[test]
@@ -639,5 +611,79 @@ mod tests {
         logic.change_direction(Direction::None);
         // Checking you cannot stop moving
         assert_eq!(*logic.direction(), Direction::Right)
+    }
+
+    #[test]
+    fn new_head() {
+        ///////////////////////////////////////////////////// Direction None
+        {
+            let logic = SnakeLogic::new(24, 24).unwrap();
+            assert_eq!(logic.new_head(), (logic.snake().back()).copied());
+        }
+        ///////////////////////////////////////////////////////// Direction Up
+        {
+            let mut logic = SnakeLogic::new(24, 24).unwrap();
+            assert_eq!(logic.new_head(), (logic.snake().back()).copied());
+            logic.direction = Direction::Up;
+            logic.position_snake = vec![(1, 1)].into();
+
+            assert_eq!(
+                logic.new_head().unwrap(),
+                (
+                    logic.snake().back().unwrap().0,
+                    logic.snake().back().unwrap().1 - 1
+                )
+            );
+
+            assert_eq!(logic.new_head().unwrap(), (1, 0));
+        }
+        //////////////////////////////////////////////////////////////////// Direction Right
+        {
+            let mut logic = SnakeLogic::new(25, 25).unwrap();
+            logic.direction = Direction::Right;
+            logic.position_snake = vec![(1, 1)].into();
+
+            assert_eq!(
+                logic.new_head().unwrap(),
+                (
+                    logic.snake().back().unwrap().0 + 1,
+                    logic.snake().back().unwrap().1
+                )
+            );
+
+            assert_eq!(logic.new_head().unwrap(), (2, 1))
+        }
+        //////////////////////////////////////////////////////////////////////////// Direction Left
+        {
+            let mut logic = SnakeLogic::new(25, 25).unwrap();
+            logic.direction = Direction::Left;
+            logic.position_snake = vec![(1, 1)].into();
+
+            assert_eq!(
+                logic.new_head().unwrap(),
+                (
+                    logic.snake().back().unwrap().0 - 1,
+                    logic.snake().back().unwrap().1
+                )
+            );
+
+            assert_eq!(logic.new_head().unwrap(), (0, 1))
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////////////// Direction Down
+        {
+            let mut logic = SnakeLogic::new(25, 25).unwrap();
+            logic.direction = Direction::Down;
+            logic.position_snake = vec![(1, 1)].into();
+
+            assert_eq!(
+                logic.new_head().unwrap(),
+                (
+                    logic.snake().back().unwrap().0,
+                    logic.snake().back().unwrap().1 + 1
+                )
+            );
+
+            assert_eq!(logic.new_head().unwrap(), (1, 2))
+        }
     }
 }

@@ -71,7 +71,7 @@ impl SnakeGUI {
         }
     }
 }
-/// This function does a transformation from the logic system to the graphics and draws the square.
+/// This function does a transformation from the logic to the graphics and draws the square.
 /// Can draw a square in any color or size
 pub fn draw_snake_square(
     frame: &mut Frame<Renderer>,
