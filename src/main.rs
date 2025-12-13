@@ -223,6 +223,16 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                             game.set_paused(logic_not_paused);
                             (Captured, Some(T::default()))
                         }
+                    } else if key == Key::Named(iced::keyboard::key::Named::Enter) {
+                        let mut game = self.snake_game.lock().expect("Poisoned");
+                        if game.is_over() {
+                            *game = SnakeGame::new(game.width(), game.height());
+                            (Captured, Some(T::default()))
+                        } else {
+                            let logic_not_paused = !game.is_paused();
+                            game.set_paused(logic_not_paused);
+                            (Captured, Some(T::default()))
+                        }
                     } else {
                         (Ignored, None)
                     }
