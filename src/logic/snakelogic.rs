@@ -171,8 +171,8 @@ impl SnakeLogic {
     }
 
     #[cfg(test)]
-    pub fn direction(&self) -> &Direction {
-        &self.direction
+    pub fn direction(&self) -> Direction {
+        self.direction
     }
 
     fn random_square(width: usize, height: usize) -> (usize, usize) {
@@ -323,6 +323,7 @@ mod tests {
 
         assert!(!logic.next_step().is_over());
         assert_eq!(*logic.snake(), [(24, 22), (24, 21), (24, 20)]);
+        logic.position_food = (0, 0);
 
         assert!(!logic.next_step().is_over());
         assert_eq!(*logic.snake(), [(24, 21), (24, 20), (24, 19)])
@@ -337,7 +338,7 @@ mod tests {
             logic.position_food = (1, 1);
             logic.direction = Direction::Right;
             assert_eq!(logic.next_step(), GameResult::NoOp);
-            assert_eq!(*logic.direction(), Direction::Right);
+            assert_eq!(logic.direction(), Direction::Right);
             let x: VecDeque<(usize, usize)> = vec![(1, 0), (0, 0), (0, 1), (1, 1)].into();
             assert_eq!(*logic.snake(), x);
         }
@@ -348,7 +349,7 @@ mod tests {
 
             assert_eq!(logic.height(), 10);
             assert_eq!(logic.width(), 10);
-            assert_eq!(*logic.direction(), Direction::None);
+            assert_eq!(logic.direction(), Direction::None);
             logic.direction = Direction::Right;
 
             let next = logic.next_step();
@@ -395,7 +396,7 @@ mod tests {
 
             logic.direction = Direction::Up;
             let next = logic.next_step();
-            assert_eq!(*logic.direction(), Direction::Up);
+            assert_eq!(logic.direction(), Direction::Up);
             assert!(!next.is_over());
             assert_eq!(*logic.snake(), vec![(1, 2), (2, 2), (2, 1), (2, 0)]);
         }
@@ -406,7 +407,7 @@ mod tests {
 
             assert_eq!(logic.height(), 10);
             assert_eq!(logic.width(), 10);
-            assert_eq!(*logic.direction(), Direction::None);
+            assert_eq!(logic.direction(), Direction::None);
             logic.direction = Direction::Up;
             let next = logic.next_step();
             assert!(next.is_over());
@@ -446,7 +447,7 @@ mod tests {
             logic.direction = Direction::Down;
             logic.position_food = (4, 1);
             assert_eq!(logic.next_step(), GameResult::NoOp);
-            assert_eq!(*logic.direction(), Direction::Down);
+            assert_eq!(logic.direction(), Direction::Down);
             assert_eq!(*logic.snake(), [(1, 0), (0, 0), (0, 1), (0, 2)]);
             logic.position_food = (4, 4);
             logic.position_snake = [(0, 0), (0, 1), (0, 2), (0, 3)].into();
@@ -461,7 +462,7 @@ mod tests {
 
             assert_eq!(logic.height(), 5);
             assert_eq!(logic.width(), 5);
-            assert_eq!(*logic.direction(), Direction::None);
+            assert_eq!(logic.direction(), Direction::None);
             logic.direction = Direction::Down;
 
             let next = logic.next_step();
@@ -505,7 +506,7 @@ mod tests {
             logic.direction = Direction::Left;
             logic.position_food = (1, 1);
             assert_eq!(logic.next_step(), GameResult::NoOp);
-            assert_eq!(*logic.direction(), Direction::Left);
+            assert_eq!(logic.direction(), Direction::Left);
             let x: VecDeque<(usize, usize)> = vec![(3, 2), (3, 1), (2, 1), (1, 1)].into();
             assert_eq!(*logic.snake(), x);
             logic.position_food = (4, 3);
@@ -521,7 +522,7 @@ mod tests {
 
             assert_eq!(logic.height(), 5);
             assert_eq!(logic.width(), 5);
-            assert_eq!(*logic.direction(), Direction::None);
+            assert_eq!(logic.direction(), Direction::None);
             logic.direction = Direction::Left;
 
             let next = logic.next_step();
@@ -589,17 +590,17 @@ mod tests {
         logic.growth_per_food = 1;
 
         // Checking for initial stop.
-        assert_eq!(*logic.direction(), Direction::None);
+        assert_eq!(logic.direction(), Direction::None);
         // Changing first direction
         logic.change_direction(Direction::Right);
         // Checking this is valid
-        assert_eq!(*logic.direction(), Direction::Right);
+        assert_eq!(logic.direction(), Direction::Right);
         // Checking for lock
         assert!(!logic.can_change_direction);
         // Changing in lock (should not work)
         logic.change_direction(Direction::Up);
         // Checking that lock had prevented change
-        assert_eq!(*logic.direction(), Direction::Right);
+        assert_eq!(logic.direction(), Direction::Right);
         // Using the GameResult (must_use) and freeing the lock
         logic.position_snake = [(0, 0)].into();
         assert!(!logic.next_step().is_over());
@@ -608,11 +609,11 @@ mod tests {
         // Doing an invalid move
         logic.change_direction(Direction::Left);
         // Checking you cannot go front then back
-        assert_eq!(*logic.direction(), Direction::Right);
+        assert_eq!(logic.direction(), Direction::Right);
         // Trying to stop moving
         logic.change_direction(Direction::None);
         // Checking you cannot stop moving
-        assert_eq!(*logic.direction(), Direction::Right)
+        assert_eq!(logic.direction(), Direction::Right)
     }
 
     #[test]
@@ -736,6 +737,7 @@ mod tests {
         }
         {
             let mut logic = SnakeLogic::new(5, 5).unwrap();
+            assert_eq!(logic.direction(), Direction::None);
             logic.position_food = (1, 1);
             logic.position_snake = vec![(4usize, 4usize)].into();
             for _ in 0..1000 {
