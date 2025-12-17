@@ -1,10 +1,11 @@
 mod logic;
 
-use crate::logic::game::SnakeGame;
+use crate::logic::game_with_menu::GameWithMenu;
+use crate::logic::traits::DrawableOn;
 use iced::keyboard::Key;
 use iced::widget::canvas::event::Status::{Captured, Ignored};
 use iced::widget::canvas::{Frame, Geometry, Text};
-use iced::window;
+use iced::{Color, Point, window};
 use iced::{Element, Fill, Font, Pixels, Rectangle, Renderer, Size, Subscription, Theme};
 use logic::Direction;
 use std::sync::{Arc, Mutex};
@@ -12,20 +13,16 @@ use std::time::Instant;
 
 pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();
-    iced::application(
-        "Snaaaaaaaaaaaaaake! ============================================================================================<",
-        SnakeGUI::update,
-        SnakeGUI::view,
-    )
-    .subscription(SnakeGUI::subscription)
-    .theme(SnakeGUI::theme)
-    .run()
+    iced::application("Snake by Arnold Afach", SnakeGUI::update, SnakeGUI::view)
+        .subscription(SnakeGUI::subscription)
+        .theme(SnakeGUI::theme)
+        .run()
 }
 
 struct SnakeGUI {
     system_cache: iced::widget::canvas::Cache,
     now: Instant,
-    snake_game: Arc<Mutex<SnakeGame>>,
+    game_with_menu: Arc<Mutex<GameWithMenu>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -44,7 +41,7 @@ impl SnakeGUI {
         match message {
             Message::Tick(now) => {
                 self.now = now;
-                self.snake_game.lock().expect("Poisoned").update(now);
+                self.game_with_menu.lock().expect("Poisoned").update(now);
                 self.system_cache.clear();
             }
         }
@@ -63,32 +60,65 @@ impl SnakeGUI {
     }
 
     pub fn new() -> Self {
-        let snake_logic = SnakeGame::new(25, 25);
         Self {
             system_cache: iced::widget::canvas::Cache::default(),
             now: Instant::now(),
-            snake_game: Arc::new(Mutex::new(snake_logic)),
+            game_with_menu: Arc::new(Mutex::new(GameWithMenu::new(25, 25))),
         }
     }
 }
-/// This function does a transformation from the logic to the graphics and draws the square.
-/// Can draw a square in any color or size
-pub fn draw_snake_square(
-    frame: &mut Frame<Renderer>,
-    color: iced::Color,
-    (square_x, square_y): (usize, usize),
-    (game_square_width, game_square_height): (usize, usize),
-) {
-    let h_s = frame.height() as usize / game_square_height;
-    let w_s = frame.width() as usize / game_square_width;
-    let ix = square_x * w_s;
-    let iy = square_y * h_s;
-    let top_left = iced::Point {
-        x: ix as f32,
-        y: iy as f32,
-    };
 
-    frame.fill_rectangle(top_left, Size::new(w_s as f32, h_s as f32), color);
+impl DrawableOn for Frame<Renderer> {
+    fn draw_text(&mut self, text: &str, color: (u8, u8, u8), x: usize, y: usize, size: f32) {
+        let color = Color::from_rgb8(color.0, color.1, color.2);
+        let text = Text {
+            content: text.to_string(),
+            position: Point {
+                x: x as f32,
+                y: y as f32,
+            },
+            color,
+            size: Pixels(size),
+            line_height: iced::widget::text::LineHeight::Absolute(Pixels(20.)),
+            font: Font {
+                family: iced::font::Family::SansSerif,
+                weight: iced::font::Weight::Black,
+                stretch: iced::font::Stretch::Normal,
+                style: iced::font::Style::Normal,
+            },
+            horizontal_alignment: iced::alignment::Horizontal::Center,
+            vertical_alignment: iced::alignment::Vertical::Center,
+            shaping: iced::widget::text::Shaping::Basic,
+        };
+        self.fill_text(text);
+    }
+
+    fn height(&self) -> usize {
+        self.height() as usize
+    }
+
+    fn width(&self) -> usize {
+        self.width() as usize
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        size: (usize, usize),
+        color_rgb: (u8, u8, u8),
+        top_left: (usize, usize),
+    ) {
+        self.fill_rectangle(
+            Point {
+                x: top_left.0 as f32,
+                y: top_left.1 as f32,
+            },
+            Size {
+                width: size.0 as f32,
+                height: size.1 as f32,
+            },
+            Color::from_rgb8(color_rgb.0, color_rgb.1, color_rgb.2),
+        );
+    }
 }
 
 impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
@@ -102,71 +132,8 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
         bounds: Rectangle,
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
-        let horizontal_alignment = iced::alignment::Horizontal::Center;
-        let vertical_alignment = iced::alignment::Vertical::Center;
-        let shaping = iced::widget::text::Shaping::Basic;
-        let line_height = iced::widget::text::LineHeight::Absolute(25.into());
-
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            let game_width = self.snake_game.lock().expect("Poisoned").width();
-            let game_height = self.snake_game.lock().expect("Poisoned").height();
-            for (snake_x, snake_y) in self.snake_game.lock().expect("Poisoned").snake() {
-                draw_snake_square(
-                    frame,
-                    iced::Color::from_rgb8(0, u8::MAX, 0),
-                    (*snake_x, *snake_y),
-                    (game_width, game_height),
-                );
-            }
-            draw_snake_square(
-                frame,
-                iced::Color::from_rgb8(u8::MAX, 0, 0),
-                self.snake_game.lock().expect("Poisoned").food(),
-                (game_width, game_height),
-            );
-            let size = Pixels::from(25.);
-            let font = Font {
-                family: iced::font::Family::default(),
-                weight: iced::font::Weight::Medium,
-                stretch: iced::font::Stretch::Normal,
-                style: iced::font::Style::Normal,
-            };
-
-            let score = Text {
-                content: format!(
-                    "Your score: {:?}",
-                    self.snake_game.lock().expect("Poisoned").score()
-                ),
-                position: iced::Point { x: 500., y: 725. },
-                color: iced::Color::from_rgb8(255, 0, 0),
-                size,
-                line_height,
-                font,
-                horizontal_alignment,
-                vertical_alignment,
-                shaping,
-            };
-
-            frame.fill_text(score);
-
-            if self.snake_game.lock().expect("Poisoned").is_over() {
-                let game_over = Text {
-                    content: format!(
-                        "Game Over. Press space to start a new game. Your score: {:?}",
-                        self.snake_game.lock().expect("Poisoned").score()
-                    ),
-                    position: frame.center(),
-                    color: iced::Color::from_rgb8(255, 0, 0),
-                    size,
-                    line_height,
-                    font,
-                    horizontal_alignment,
-                    vertical_alignment,
-                    shaping,
-                };
-
-                frame.fill_text(game_over);
-            }
+            self.game_with_menu.lock().expect("Poisoned").draw(frame);
         });
 
         vec![my_snake]
@@ -192,47 +159,31 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                     text: _text,
                 } => {
                     if key == Key::Named(iced::keyboard::key::Named::ArrowUp) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-
-                        game.change_direction(Direction::Up);
-
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.up_pressed();
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowDown) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-
-                        game.change_direction(Direction::Down);
-
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.down_pressed();
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowLeft) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-
-                        game.change_direction(Direction::Left);
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.left_pressed();
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::ArrowRight) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-
-                        game.change_direction(Direction::Right);
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.right_pressed();
                         (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::Space) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-                        if game.is_over() {
-                            *game = SnakeGame::new(game.width(), game.height());
-                            (Captured, Some(T::default()))
-                        } else {
-                            let logic_not_paused = !game.is_paused();
-                            game.set_paused(logic_not_paused);
-                            (Captured, Some(T::default()))
-                        }
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.enter_or_space_pressed();
+                        (Captured, Some(T::default()))
                     } else if key == Key::Named(iced::keyboard::key::Named::Enter) {
-                        let mut game = self.snake_game.lock().expect("Poisoned");
-                        if game.is_over() {
-                            *game = SnakeGame::new(game.width(), game.height());
-                            (Captured, Some(T::default()))
-                        } else {
-                            let logic_not_paused = !game.is_paused();
-                            game.set_paused(logic_not_paused);
-                            (Captured, Some(T::default()))
-                        }
+                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
+                        game_with_menu.enter_or_space_pressed();
+                        (Captured, Some(T::default()))
+                    } else if key == Key::Named(iced::keyboard::key::Named::Escape) {
+                        std::process::exit(0)
                     } else {
                         (Ignored, None)
                     }

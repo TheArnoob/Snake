@@ -5,7 +5,7 @@ use std::{
     collections::VecDeque,
     time::{Duration, Instant},
 };
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SnakeGame {
     snake_logic: SnakeLogic,
     now: Instant,
@@ -46,8 +46,16 @@ impl SnakeGame {
         self.snake_logic.snake()
     }
 
+    pub fn direction(&self) -> Direction {
+        self.snake_logic.direction()
+    }
+
     pub fn change_direction(&mut self, direction: Direction) {
         self.snake_logic.change_direction(direction)
+    }
+
+    pub fn next_step(&mut self) -> GameResult {
+        self.snake_logic.next_step()
     }
     pub fn set_paused(&mut self, new_paused: bool) {
         self.paused = new_paused;
@@ -64,14 +72,13 @@ impl SnakeGame {
     pub fn is_over(&self) -> bool {
         self.last_game_result == GameResult::GameOver
     }
-
-    pub fn update(&mut self, now: Instant) {
+    pub fn update(&mut self, now: std::time::Instant) {
         if self.last_game_result.is_over() {
             return;
         }
         self.now = now;
         if now - self.last_logic_update > Self::TIMESTEP {
-            if !self.paused {
+            if !self.is_paused() {
                 self.last_game_result = self.snake_logic.next_step();
             }
             self.last_logic_update = now;

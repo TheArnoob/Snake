@@ -170,7 +170,6 @@ impl SnakeLogic {
         self.width
     }
 
-    #[cfg(test)]
     pub fn direction(&self) -> Direction {
         self.direction
     }
@@ -315,6 +314,7 @@ mod tests {
 
         assert!(!logic.next_step().is_over());
         assert_eq!(*logic.snake(), [(24, 22)]);
+        logic.position_food = (0, 0);
 
         assert!(!logic.next_step().is_over());
         assert_eq!(*logic.snake(), [(24, 22), (24, 21)]);
