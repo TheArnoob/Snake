@@ -34,8 +34,8 @@ impl GameWithMenu {
 
     pub fn up_pressed(&mut self) {
         match self.game_or_menu {
-            GameOrMenu::InGame => return self.game.change_direction(super::Direction::Up),
-            GameOrMenu::InMenu => return self.menu.select_previous_option(),
+            GameOrMenu::InGame => self.game.change_direction(super::Direction::Up),
+            GameOrMenu::InMenu => self.menu.select_previous_option(),
         }
     }
 
