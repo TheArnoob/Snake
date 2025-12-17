@@ -49,14 +49,10 @@ impl SnakeGame {
     pub fn direction(&self) -> Direction {
         self.snake_logic.direction()
     }
-
     pub fn change_direction(&mut self, direction: Direction) {
         self.snake_logic.change_direction(direction)
     }
 
-    pub fn next_step(&mut self) -> GameResult {
-        self.snake_logic.next_step()
-    }
     pub fn set_paused(&mut self, new_paused: bool) {
         self.paused = new_paused;
     }

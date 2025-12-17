@@ -1,5 +1,3 @@
-use iced::{Pixels, widget::canvas::Text};
-
 use crate::logic::{
     game::SnakeGame,
     menu::{Menu, SelectedOption},
