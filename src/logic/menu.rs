@@ -39,25 +39,9 @@ impl Menu {
 pub enum SelectedOption {
     #[default]
     NewGame,
-    Options, /*(Options)*/
+    Options,
     Exit,
 }
-
-// #[derive(Debug, Clone, Copy, PartialEq, Default)]
-// #[repr(u8)]
-// enum Options {
-//     #[default]
-//     Difficulty(Difficulty),
-//     GrowthPerFood(usize),
-//     GameSize((usize, usize)),
-// }
-
-// #[derive(Debug, Clone, Copy, PartialEq)]
-// enum Difficulty {
-//     Easy,
-//     Medium,
-//     Hard,
-// }
 
 impl SelectedOption {
     pub fn all_possibilities() -> Vec<SelectedOption> {
