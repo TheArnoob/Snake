@@ -1,8 +1,8 @@
-pub mod game;
+mod game;
 pub mod game_with_menu;
 mod internal;
-pub mod menu;
-pub mod snakelogic;
+mod menu;
+mod snakelogic;
 pub mod traits;
 
 #[derive(Clone, Debug, Copy, PartialEq)]

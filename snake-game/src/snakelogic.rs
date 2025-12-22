@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use rand::Rng;
 
-use crate::logic::{Direction, internal::GameResult};
+use crate::{Direction, internal::GameResult};
 
 const DEFAULT_GROWTH: usize = 4;
 

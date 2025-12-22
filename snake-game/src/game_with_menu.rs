@@ -1,4 +1,4 @@
-use crate::logic::{
+use crate::{
     Direction,
     game::{GameDifficulty, SnakeGame},
     menu::{Difficulty, Menu, MenuAction, MenuType, SelectedSetting},
@@ -222,7 +222,7 @@ pub enum GameOrMenu {
 
 #[cfg(test)]
 mod tests {
-    use crate::logic::{
+    use crate::{
         Direction,
         game::GameDifficulty,
         game_with_menu::{GameOrMenu, GameWithMenu},

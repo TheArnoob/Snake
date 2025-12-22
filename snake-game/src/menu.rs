@@ -233,7 +233,7 @@ impl SelectedOption {
 
 #[cfg(test)]
 mod test {
-    use crate::logic::menu::*;
+    use crate::menu::SelectedOption;
 
     #[test]
     fn all() {

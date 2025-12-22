@@ -1,13 +1,10 @@
-mod logic;
-
-use crate::logic::game_with_menu::GameWithMenu;
-use crate::logic::traits::DrawableOn;
 use iced::keyboard::Key;
 use iced::widget::canvas::event::Status::{Captured, Ignored};
 use iced::widget::canvas::{Frame, Geometry, Text};
 use iced::{Color, Point, window};
 use iced::{Element, Fill, Font, Pixels, Rectangle, Renderer, Size, Subscription, Theme};
-use logic::Direction;
+use snake_game::game_with_menu::GameWithMenu;
+use snake_game::traits::DrawableOn;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -60,7 +57,9 @@ impl SnakeGUI {
     }
 }
 
-impl DrawableOn for Frame<Renderer> {
+struct IcedFrame<'a>(&'a mut Frame<Renderer>);
+
+impl DrawableOn for IcedFrame<'_> {
     fn draw_text(&mut self, text: &str, color: (u8, u8, u8), x: usize, y: usize, size: f32) {
         let color = Color::from_rgb8(color.0, color.1, color.2);
         let text = Text {
@@ -82,15 +81,15 @@ impl DrawableOn for Frame<Renderer> {
             vertical_alignment: iced::alignment::Vertical::Center,
             shaping: iced::widget::text::Shaping::Basic,
         };
-        self.fill_text(text);
+        self.0.fill_text(text);
     }
 
     fn height(&self) -> usize {
-        self.height() as usize
+        self.0.height() as usize
     }
 
     fn width(&self) -> usize {
-        self.width() as usize
+        self.0.width() as usize
     }
 
     fn fill_rectangle(
@@ -99,7 +98,7 @@ impl DrawableOn for Frame<Renderer> {
         color_rgb: (u8, u8, u8),
         top_left: (usize, usize),
     ) {
-        self.fill_rectangle(
+        self.0.fill_rectangle(
             Point {
                 x: top_left.0 as f32,
                 y: top_left.1 as f32,
@@ -125,7 +124,10 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
         _cursor: iced::mouse::Cursor,
     ) -> Vec<Geometry> {
         let my_snake = self.system_cache.draw(renderer, bounds.size(), |frame| {
-            self.game_with_menu.lock().expect("Poisoned").draw(frame);
+            self.game_with_menu
+                .lock()
+                .expect("Poisoned")
+                .draw(&mut IcedFrame(frame));
         });
 
         vec![my_snake]

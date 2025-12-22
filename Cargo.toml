@@ -5,6 +5,10 @@ edition = "2024"
 
 [dependencies]
 iced = { version = "0.13", features = ["debug", "canvas", "image", "tokio"] }
-rand = "0.9"
-strum = { version = "0.27", features = ["derive"] }
 tracing-subscriber = "0.3"
+
+snake-game = {path = "snake-game"}
+
+[workspace]
+resolver = "3"
+members = ["snake-game"]

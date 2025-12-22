@@ -1,6 +1,6 @@
 use crate::Direction;
-use crate::logic::internal::GameResult;
-use crate::logic::snakelogic::SnakeLogic;
+use crate::internal::GameResult;
+use crate::snakelogic::SnakeLogic;
 use std::{
     collections::VecDeque,
     time::{Duration, Instant},
