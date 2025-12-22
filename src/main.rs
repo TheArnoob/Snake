@@ -58,14 +58,6 @@ impl SnakeGUI {
     fn subscription(&self) -> Subscription<Message> {
         window::frames().map(Message::Tick)
     }
-
-    pub fn new() -> Self {
-        Self {
-            system_cache: iced::widget::canvas::Cache::default(),
-            now: Instant::now(),
-            game_with_menu: Arc::new(Mutex::new(GameWithMenu::new(25, 25))),
-        }
-    }
 }
 
 impl DrawableOn for Frame<Renderer> {
@@ -174,11 +166,9 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
                         let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
                         game_with_menu.right_pressed();
                         (Captured, Some(T::default()))
-                    } else if key == Key::Named(iced::keyboard::key::Named::Space) {
-                        let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
-                        game_with_menu.enter_or_space_pressed();
-                        (Captured, Some(T::default()))
-                    } else if key == Key::Named(iced::keyboard::key::Named::Enter) {
+                    } else if key == Key::Named(iced::keyboard::key::Named::Space)
+                        || key == Key::Named(iced::keyboard::key::Named::Enter)
+                    {
                         let mut game_with_menu = self.game_with_menu.lock().expect("Poisoned");
                         game_with_menu.enter_or_space_pressed();
                         (Captured, Some(T::default()))
@@ -201,6 +191,10 @@ impl<T: Default> iced::widget::canvas::Program<T> for SnakeGUI {
 
 impl Default for SnakeGUI {
     fn default() -> Self {
-        Self::new()
+        Self {
+            system_cache: Default::default(),
+            now: Instant::now(),
+            game_with_menu: Arc::new(Mutex::new(GameWithMenu::default())),
+        }
     }
 }

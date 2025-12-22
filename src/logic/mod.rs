@@ -12,5 +12,6 @@ pub enum Direction {
     Down,
     Left,
     Right,
+    /// This is when you aren't moving
     None,
 }

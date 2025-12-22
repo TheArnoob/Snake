@@ -1,21 +1,23 @@
 use crate::logic::{
-    game::SnakeGame,
-    menu::{Menu, SelectedOption},
+    Direction,
+    game::{GameDifficulty, SnakeGame},
+    menu::{Difficulty, Menu, MenuAction, MenuType, SelectedSetting},
     traits::DrawableOn,
 };
 
+#[derive(Debug, Default)]
 pub struct GameWithMenu {
     game: SnakeGame,
     menu: Menu,
     game_or_menu: GameOrMenu,
 }
-
 impl GameWithMenu {
-    pub fn new(width: usize, height: usize) -> Self {
+    #[cfg(test)]
+    pub fn new(difficulty: GameDifficulty) -> Self {
         GameWithMenu {
-            game: SnakeGame::new(width, height),
+            game: SnakeGame::new(difficulty),
             menu: Menu::new(),
-            game_or_menu: GameOrMenu::InMenu,
+            game_or_menu: GameOrMenu::InMainMenu,
         }
     }
 
@@ -24,7 +26,7 @@ impl GameWithMenu {
             GameOrMenu::InGame => {
                 self.game.update(now);
             }
-            GameOrMenu::InMenu => {
+            GameOrMenu::InMainMenu => {
                 self.menu.update(now);
             }
         }
@@ -32,49 +34,81 @@ impl GameWithMenu {
 
     pub fn up_pressed(&mut self) {
         match self.game_or_menu {
-            GameOrMenu::InGame => self.game.change_direction(super::Direction::Up),
-            GameOrMenu::InMenu => self.menu.select_previous_option(),
+            GameOrMenu::InGame => self.game.change_direction(Direction::Up),
+            GameOrMenu::InMainMenu => self.menu.select_previous_option(),
         }
     }
 
     pub fn left_pressed(&mut self) {
         match self.game_or_menu {
-            GameOrMenu::InGame => self.game.change_direction(super::Direction::Left),
-            GameOrMenu::InMenu => (),
+            GameOrMenu::InGame => self.game.change_direction(Direction::Left),
+            GameOrMenu::InMainMenu => match self.menu.menu_type() {
+                MenuType::MainMenu => (),
+                MenuType::SettingsMenu => match self.menu.menu_type() {
+                    MenuType::MainMenu => (),
+                    MenuType::SettingsMenu => match self.menu.selected_setting() {
+                        SelectedSetting::Difficulty => self.menu.previous_difficulty(),
+                        SelectedSetting::Back => (),
+                    },
+                },
+            },
         }
     }
     pub fn down_pressed(&mut self) {
         match self.game_or_menu {
-            GameOrMenu::InGame => self.game.change_direction(super::Direction::Down),
-            GameOrMenu::InMenu => self.menu.select_next_option(),
+            GameOrMenu::InGame => self.game.change_direction(Direction::Down),
+            GameOrMenu::InMainMenu => self.menu.select_next_option(),
         }
     }
 
     pub fn right_pressed(&mut self) {
         match self.game_or_menu {
-            GameOrMenu::InGame => self.game.change_direction(super::Direction::Right),
-            GameOrMenu::InMenu => (),
+            GameOrMenu::InGame => self.game.change_direction(Direction::Right),
+            GameOrMenu::InMainMenu => match self.menu.menu_type() {
+                MenuType::MainMenu => (),
+                MenuType::SettingsMenu => match self.menu.selected_setting() {
+                    SelectedSetting::Difficulty => self.menu.next_difficulty(),
+                    SelectedSetting::Back => (),
+                },
+            },
         }
     }
     pub fn enter_or_space_pressed(&mut self) {
         match self.game_or_menu {
             GameOrMenu::InGame => {
-                if self.game.is_over() {
-                    *self = GameWithMenu::new(self.game.width(), self.game.height())
-                }
-                self.game.set_paused(!self.game.is_paused())
-            }
-            GameOrMenu::InMenu => match self.menu.selected_option() {
-                SelectedOption::NewGame => {
-                    self.game_or_menu = GameOrMenu::InGame;
-                    self.game = SnakeGame::new(25, 25);
-                }
+                let difficulty = match self.menu.settings().difficulty() {
+                    Difficulty::Easy => GameDifficulty::Easy,
+                    Difficulty::Normal => GameDifficulty::Normal,
+                    Difficulty::Hard => GameDifficulty::Hard,
+                    Difficulty::Extreme => GameDifficulty::Extreme,
+                    Difficulty::Insane => GameDifficulty::Insane,
+                    Difficulty::VeryEasy => GameDifficulty::VeryEasy,
+                };
 
-                SelectedOption::Options => return,
-                SelectedOption::Exit => {
-                    std::process::exit(0);
+                if self.game.is_over() {
+                    self.game_or_menu = GameOrMenu::InMainMenu;
+                    self.game = SnakeGame::new(difficulty)
+                } else {
+                    self.game.set_paused(!self.game.is_paused())
                 }
-            },
+            }
+            GameOrMenu::InMainMenu => {
+                match self.menu.enter_or_space_pressed() {
+                    MenuAction::NoOp => (),
+                    MenuAction::NewGame => {
+                        let difficulty = match self.menu.settings().difficulty() {
+                            Difficulty::Easy => GameDifficulty::Easy,
+                            Difficulty::Normal => GameDifficulty::Normal,
+                            Difficulty::Hard => GameDifficulty::Hard,
+                            Difficulty::Extreme => GameDifficulty::Extreme,
+                            Difficulty::Insane => GameDifficulty::Insane,
+                            Difficulty::VeryEasy => GameDifficulty::VeryEasy,
+                        };
+                        self.game = SnakeGame::new(difficulty);
+                        self.game_or_menu = GameOrMenu::InGame;
+                    }
+                };
+            }
         }
     }
 
@@ -136,19 +170,21 @@ impl GameWithMenu {
                     );
                 }
             }
-            GameOrMenu::InMenu => {
-                for currrent_selected_option in SelectedOption::all_possibilities() {
-                    let color_rgb = if self.menu.selected_option() == currrent_selected_option {
+            GameOrMenu::InMainMenu => {
+                for (i, currrent_selected_option) in
+                    self.menu.all_possibilities().iter().enumerate()
+                {
+                    let color_rgb = if i == self.menu.selected_option() as usize {
                         selected_color
                     } else {
                         unselected_color
                     };
 
                     frame.draw_text(
-                        currrent_selected_option.menu_text(),
+                        currrent_selected_option,
                         color_rgb,
                         frame.width() / 2,
-                        frame.height() / 2 + ((currrent_selected_option as u8) * text_gap) as usize,
+                        frame.height() / 2 + ((i as u8) * text_gap) as usize,
                         text_size as f32,
                     );
                 }
@@ -156,7 +192,6 @@ impl GameWithMenu {
         }
     }
 }
-
 /// This function does a transformation from the logic to the graphics and draws the square.
 /// Can draw a square in any color or size
 pub fn draw_snake_square<T: DrawableOn>(
@@ -165,43 +200,43 @@ pub fn draw_snake_square<T: DrawableOn>(
     (square_x, square_y): (usize, usize),
     (game_square_width, game_square_height): (usize, usize),
 ) {
-    let h_s = frame.height() as usize / game_square_height;
-    let w_s = frame.width() as usize / game_square_width;
+    let h_s = frame.height() / game_square_height;
+    let w_s = frame.width() / game_square_width;
     let ix = square_x * w_s;
     let iy = square_y * h_s;
     let top_left = (ix as f32, iy as f32);
 
     frame.fill_rectangle(
         (w_s, h_s),
-        (color.0 as u8, color.1 as u8, color.2 as u8),
+        (color.0, color.1, color.2),
         (top_left.0 as usize, top_left.1 as usize),
     );
 }
 
-#[derive(Default, Debug, PartialEq)]
-enum GameOrMenu {
-    #[default]
+#[derive(Default, Debug, PartialEq, Clone, Copy)]
+pub enum GameOrMenu {
     InGame,
-    // TODO: Make InMenu the default
-    InMenu,
+    #[default]
+    InMainMenu,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::logic::{
         Direction,
+        game::GameDifficulty,
         game_with_menu::{GameOrMenu, GameWithMenu},
         menu::SelectedOption,
     };
 
     #[test]
     fn up_test() {
-        let mut game_with_menu = GameWithMenu::new(25, 25);
-        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMenu);
+        let mut game_with_menu = GameWithMenu::new(GameDifficulty::Normal);
+        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMainMenu);
         game_with_menu.up_pressed();
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::Options
+            SelectedOption::Exit as u8
         );
 
         game_with_menu.game_or_menu = GameOrMenu::InGame;
@@ -211,12 +246,12 @@ mod tests {
 
     #[test]
     fn right_test() {
-        let mut game_with_menu = GameWithMenu::new(25, 25);
-        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMenu);
+        let mut game_with_menu = GameWithMenu::new(GameDifficulty::Normal);
+        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMainMenu);
         game_with_menu.right_pressed();
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::NewGame
+            SelectedOption::NewGame as u8
         );
 
         game_with_menu.game_or_menu = GameOrMenu::InGame;
@@ -225,12 +260,12 @@ mod tests {
     }
     #[test]
     fn left_test() {
-        let mut game_with_menu = GameWithMenu::new(25, 25);
-        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMenu);
+        let mut game_with_menu = GameWithMenu::new(GameDifficulty::Normal);
+        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMainMenu);
         game_with_menu.left_pressed();
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::NewGame
+            SelectedOption::NewGame as u8
         );
 
         game_with_menu.game_or_menu = GameOrMenu::InGame;
@@ -239,13 +274,13 @@ mod tests {
     }
     #[test]
     fn down_test() {
-        let mut game_with_menu = GameWithMenu::new(25, 25);
-        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMenu);
+        let mut game_with_menu = GameWithMenu::new(GameDifficulty::Normal);
+        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMainMenu);
         game_with_menu.down_pressed();
 
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::Options
+            SelectedOption::Settings as u8
         );
 
         game_with_menu.game_or_menu = GameOrMenu::InGame;
@@ -254,12 +289,12 @@ mod tests {
     }
     #[test]
     fn enter_or_space_test() {
-        let mut game_with_menu = GameWithMenu::new(25, 25);
-        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMenu);
+        let mut game_with_menu = GameWithMenu::new(GameDifficulty::Normal);
+        assert_eq!(game_with_menu.game_or_menu, GameOrMenu::InMainMenu);
         game_with_menu.enter_or_space_pressed();
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::NewGame
+            SelectedOption::NewGame as u8
         );
         assert_eq!(game_with_menu.game.is_paused(), false);
 

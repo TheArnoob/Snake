@@ -15,7 +15,7 @@ pub struct SnakeLogic {
     direction: Direction,
     height: usize,
     width: usize,
-    /// The amount of growth squares missing to be covered before you walk normally.
+    /// The amount of growth squares missing to be covered before you move normally.
     amount_of_growth: usize,
     growth_per_food: usize,
     /// **A boolean that indicates wether you can change direction or not.
@@ -152,7 +152,7 @@ impl SnakeLogic {
     /// It also alters** [`self`] **s snake position and may alter food position.**
     pub fn next_step(&mut self) -> GameResult {
         self.can_change_direction = true;
-        return self.abstract_next_step();
+        self.abstract_next_step()
     }
 
     pub fn snake(&self) -> &VecDeque<(usize, usize)> {
