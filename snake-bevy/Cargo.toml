@@ -1,0 +1,14 @@
+[package]
+name = "snake-bevy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.17", features = [
+    "x11",
+    "bevy_sprite_render",
+    "serialize",
+    "bevy_ui_render",
+    "bevy_post_process",
+    "webgl2",
+], default-features = false }

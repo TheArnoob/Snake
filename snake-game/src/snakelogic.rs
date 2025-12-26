@@ -170,6 +170,7 @@ impl SnakeLogic {
         self.width
     }
 
+    #[allow(dead_code)]
     pub fn direction(&self) -> Direction {
         self.direction
     }
@@ -409,6 +410,7 @@ mod tests {
             assert_eq!(logic.width(), 10);
             assert_eq!(logic.direction(), Direction::None);
             logic.direction = Direction::Up;
+            logic.position_snake = vec![(0, 0)].into();
             let next = logic.next_step();
             assert!(next.is_over());
         }

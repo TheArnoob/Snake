@@ -7,8 +7,9 @@ edition = "2024"
 iced = { version = "0.13", features = ["debug", "canvas", "image", "tokio"] }
 tracing-subscriber = "0.3"
 
-snake-game = {path = "snake-game"}
+snake-game = { path = "snake-game" }
+snake-bevy = { path = "snake-bevy" }
 
 [workspace]
 resolver = "3"
-members = ["snake-game"]
+members = ["snake-game", "snake-bevy"]
