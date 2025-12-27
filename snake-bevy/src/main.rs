@@ -84,7 +84,6 @@ fn setup(
 
     let rectangle = meshes.add(Rectangle::new(50.0, 100.0));
 
-    // Distribute colors evenly across the rainbow.
     let color = Color::linear_rgb(0., 1., 0.);
 
     commands.spawn((
