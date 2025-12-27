@@ -64,7 +64,7 @@ impl Menu {
         }
     }
 
-    pub fn update(&mut self, _now: std::time::Instant) {}
+    pub fn update(&mut self, _now: web_time::Instant) {}
 
     pub fn enter_or_space_pressed(&mut self) -> MenuAction {
         match self.menu_type() {

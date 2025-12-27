@@ -6,9 +6,10 @@ edition = "2024"
 [dependencies]
 bevy = { version = "0.17", features = [
     "x11",
-    "bevy_sprite_render",
     "serialize",
     "bevy_ui_render",
-    "bevy_post_process",
     "webgl2",
 ], default-features = false }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+snake-game = { path = "../snake-game" }

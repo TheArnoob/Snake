@@ -6,7 +6,7 @@ use iced::{Element, Fill, Font, Pixels, Rectangle, Renderer, Size, Subscription,
 use snake_game::game_with_menu::GameWithMenu;
 use snake_game::traits::DrawableOn;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use web_time::Instant;
 
 pub fn main() -> iced::Result {
     tracing_subscriber::fmt::init();

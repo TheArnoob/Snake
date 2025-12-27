@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 iced = { version = "0.13", features = ["debug", "canvas", "image", "tokio"] }
 tracing-subscriber = "0.3"
+web-time = "1.1"
 
 snake-game = { path = "snake-game" }
 snake-bevy = { path = "snake-bevy" }

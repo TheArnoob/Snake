@@ -1,10 +1,10 @@
 use crate::Direction;
 use crate::internal::GameResult;
 use crate::snakelogic::SnakeLogic;
-use std::{
-    collections::VecDeque,
-    time::{Duration, Instant},
-};
+use std::collections::VecDeque;
+
+use web_time::{Duration, Instant};
+
 #[derive(Debug)]
 pub struct SnakeGame {
     snake_logic: SnakeLogic,
@@ -124,7 +124,7 @@ impl SnakeGame {
     pub fn is_over(&self) -> bool {
         self.last_game_result == GameResult::GameOver
     }
-    pub fn update(&mut self, now: std::time::Instant) {
+    pub fn update(&mut self, now: web_time::Instant) {
         if self.last_game_result.is_over() {
             return;
         }

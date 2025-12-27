@@ -21,7 +21,7 @@ impl GameWithMenu {
         }
     }
 
-    pub fn update(&mut self, now: std::time::Instant) {
+    pub fn update(&mut self, now: web_time::Instant) {
         match self.game_or_menu {
             GameOrMenu::InGame => {
                 self.game.update(now);
