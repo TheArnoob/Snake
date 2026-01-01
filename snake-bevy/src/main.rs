@@ -1,10 +1,12 @@
-use bevy::{
-    asset::load_internal_binary_asset, input::common_conditions::input_toggle_active, prelude::*,
-    sprite::Text2dShadow,
-};
-use bevy::{input::common_conditions::input_just_pressed, sprite_render::Wireframe2dConfig};
+use std::time::Instant;
 
-use snake_game::game_with_menu::GameWithMenu;
+use bevy::{
+    asset::load_internal_binary_asset, prelude::*,
+    sprite::Text2dShadow,
+    input::common_conditions::input_just_pressed,
+};
+
+use snake_game::{game_with_menu::GameWithMenu, traits::DrawableOn};
 #[derive(Debug, bevy::prelude::Resource, Default)]
 struct GameWithMenuResource(GameWithMenu);
 
@@ -13,12 +15,13 @@ fn main() {
     app.add_plugins(DefaultPlugins);
 
     app.init_resource::<GameWithMenuResource>();
+    app.init_resource::<Entities>();
 
     app.add_systems(Startup, setup)
         .add_systems(
             Update,
             snake_space_pressed.run_if(input_just_pressed(KeyCode::Space)),
-        )
+        ).add_systems(Update, (update_time, draw_frame).chain())
         .add_systems(
             Update,
             snake_left_pressed.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -43,10 +46,6 @@ fn main() {
             Update,
             snake_space_pressed.run_if(input_just_pressed(KeyCode::Space)),
         )
-        .add_systems(
-            Update,
-            rotate.run_if(input_toggle_active(false, KeyCode::KeyR)),
-        )
         .add_systems(Update, setup.run_if(input_just_pressed(KeyCode::AltLeft)));
     load_internal_binary_asset!(
         app,
@@ -58,8 +57,8 @@ fn main() {
     app.run();
 }
 
-const X_EXTENT: f32 = 1000.;
-const Y_EXTENT: f32 = 150.;
+const X_EXTENT: f32 = 1220.;
+const Y_EXTENT: f32 = 620.;
 
 fn setup(
     mut commands: Commands,
@@ -68,7 +67,7 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
-    let text_font = TextFont {
+    let text_font: TextFont = TextFont {
         font_size: 50.,
         ..Default::default()
     };
@@ -81,20 +80,6 @@ fn setup(
         Text2dShadow::default(),
         TextColor::WHITE,
     ));
-
-    let rectangle = meshes.add(Rectangle::new(50.0, 100.0));
-
-    let color = Color::linear_rgb(0., 1., 0.);
-
-    commands.spawn((
-        Mesh2d(rectangle),
-        MeshMaterial2d(materials.add(color)),
-        Transform::from_xyz(-X_EXTENT / 2., Y_EXTENT / 2., 0.0),
-    ));
-}
-
-fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
-    wireframe_config.global = !wireframe_config.global;
 }
 
 fn snake_space_pressed(mut game_with_menu: ResMut<GameWithMenuResource>) {
@@ -117,10 +102,101 @@ fn snake_down_pressed(mut game_with_menu: ResMut<GameWithMenuResource>) {
     game_with_menu.0.down_pressed();
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Mesh2d>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_z(time.delta_secs() / 2.);
-        transform.rotate_x(time.delta_secs() / 2.);
-        transform.rotate_y(time.delta_secs() / 2.);
-    }
+ #[derive(Resource, Default)]
+ struct Entities {
+     entities: Vec<Entity>,
+ }
+ 
+ struct Frame<'a, 'b> {
+     commands: Commands<'a, 'b>,
+     meshes: ResMut<'a, Assets<Mesh>>,
+     materials: ResMut<'a, Assets<ColorMaterial>>,
+     entities: ResMut<'a, Entities>,
+ }
+
+ impl DrawableOn for Frame<'_, '_> {
+     fn draw_text(
+         &mut self,
+         _text: &str,
+         _color_rgb: (u8, u8, u8),
+         _x: usize,
+         _y: usize,
+         _size: f32,
+     ) {
+         let text_font = TextFont {
+             font_size: 50.,
+             ..Default::default()
+         };
+ 
+         self.commands.spawn((
+             Text2d::new("Hello"),
+             text_font,
+             TextLayout::new_with_justify(Justify::Center),
+             TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
+             Text2dShadow::default(),
+             TextColor::WHITE,
+         ));
+     }
+ 
+     fn height(&self) -> usize {
+         Y_EXTENT as usize
+     }
+ 
+     fn width(&self)  -> usize {
+         X_EXTENT as usize
+     }
+ 
+     fn fill_rectangle(
+         &mut self,
+         size: (usize, usize),
+         color_rgb: (u8, u8, u8),
+         top_left: (usize, usize),
+     ) {
+         self.commands.spawn(Camera2d);
+ 
+         let rectangle = self
+             .meshes
+             .add(Rectangle::new(size.0 as f32, size.1 as f32));
+ 
+         let rectangle_entity = self.commands.spawn((
+             Mesh2d(rectangle),
+             MeshMaterial2d(self.materials.add(Color::linear_rgb(
+                 color_rgb.0 as f32 / 255.,
+                 color_rgb.1 as f32 / 255.,
+                 color_rgb.2 as f32 / 255.,
+             ))),
+             Transform::from_xyz(
+                 (top_left.0 as f32) - X_EXTENT / 2.,
+                  -(top_left.1 as f32) + Y_EXTENT / 2.,
+                 0.,
+             ),
+         ));
+ 
+         self.entities.entities.push(rectangle_entity.id());
+     }
+ }
+ 
+fn update_time(mut game_with_menu: ResMut<GameWithMenuResource>) {
+    game_with_menu.0.update(Instant::now());
+}
+ fn draw_frame(
+     mut commands: Commands,
+     meshes: ResMut<Assets<Mesh>>,
+     materials: ResMut<Assets<ColorMaterial>>,
+     mut entities: ResMut<Entities>,
+     game_with_menu: ResMut<GameWithMenuResource>,
+ ) {
+     println!("Draw_frame was called!");
+     entities.entities.iter().for_each(|entity| {
+         commands.entity(*entity).despawn();
+     });
+     entities.entities.clear();
+     println!("Capacity: {}", entities.entities.capacity());
+     let mut frame = Frame {
+         commands,
+         meshes,
+         materials,
+         entities,
+     };
+    game_with_menu.0.draw(&mut frame);
 }
