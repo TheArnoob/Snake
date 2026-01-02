@@ -163,10 +163,11 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
         color_rgb: (u8, u8, u8),
         top_left: (usize, usize),
     ) {
+        // Position xyz for rectangle
         let rect_x = (top_left.0 as f32) - X_EXTENT / 2.;
         let rect_y = -(top_left.1 as f32) + Y_EXTENT / 2.;
         let rect_z = 0.;
-
+        // This takes the color id from the btreemap and inserts the id if it is not there.
         let color_id = self.entities.materials.entry(color_rgb).or_insert(
             self.materials
                 .add(Color::linear_rgb(
@@ -189,25 +190,33 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
             Some(rect) => {
                 let (mut transform, mut vis, mut color) =
                     self.rect_query.get_mut(rect).expect("Cannot fail");
+                // Changing the position to the desired position (See rect_x/y/z)
                 transform.translation = Vec3::new(rect_x, rect_y, rect_z);
+                // Making the rectangle visible
                 *vis = Visibility::Visible;
+                // Changing the color the color_material_handle color
                 *color = MeshMaterial2d(color_material_handle);
+                // Adding the drawn rectangle to the used list
                 self.entities.used_rects.push(rect);
             }
             None => {
                 let rectangle_entity = self.commands.spawn((
                     Mesh2d(rectangle),
-                    // Add should only occur once
                     MeshMaterial2d(color_material_handle),
                     Transform::from_xyz(rect_x, rect_y, rect_z),
                 ));
 
+                // Adding the drawn rectangle to the used list
                 self.entities.used_rects.push(rectangle_entity.id());
             }
         }
+
+        // Going over all leftover rectangles and then doing the following:
         self.entities.unused_rects.iter().for_each(|entity| {
+            // Destructuring queries entity
             let (_transform, mut vis, mut mesh) =
                 self.rect_query.get_mut(*entity).expect("Cannot fail");
+            // Changing their visibility to invisible
             *vis = Visibility::Hidden;
         });
     }
@@ -228,6 +237,7 @@ fn draw_frame(
         &mut MeshMaterial2d<ColorMaterial>,
     )>,
 ) {
+    // Adding all used rectangles to the unused ones.
     let mut buffer = Vec::new();
     buffer.append(&mut entities.used_rects);
     entities.unused_rects.append(&mut buffer);
