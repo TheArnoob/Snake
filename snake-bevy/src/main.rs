@@ -1,9 +1,8 @@
-use std::time::Instant;
+use std::{collections::BTreeMap, time::Instant};
 
 use bevy::{
-    asset::load_internal_binary_asset, prelude::*,
+    asset::load_internal_binary_asset, input::common_conditions::input_just_pressed, prelude::*,
     sprite::Text2dShadow,
-    input::common_conditions::input_just_pressed,
 };
 
 use snake_game::{game_with_menu::GameWithMenu, traits::DrawableOn};
@@ -21,7 +20,8 @@ fn main() {
         .add_systems(
             Update,
             snake_space_pressed.run_if(input_just_pressed(KeyCode::Space)),
-        ).add_systems(Update, (update_time, draw_frame).chain())
+        )
+        .add_systems(Update, (update_time, draw_frame).chain())
         .add_systems(
             Update,
             snake_left_pressed.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -102,101 +102,142 @@ fn snake_down_pressed(mut game_with_menu: ResMut<GameWithMenuResource>) {
     game_with_menu.0.down_pressed();
 }
 
- #[derive(Resource, Default)]
- struct Entities {
-     entities: Vec<Entity>,
- }
- 
- struct Frame<'a, 'b> {
-     commands: Commands<'a, 'b>,
-     meshes: ResMut<'a, Assets<Mesh>>,
-     materials: ResMut<'a, Assets<ColorMaterial>>,
-     entities: ResMut<'a, Entities>,
- }
+#[derive(Resource, Default)]
+struct Entities {
+    used_rects: Vec<Entity>,
+    unused_rects: Vec<Entity>,
+    materials: BTreeMap<(u8, u8, u8), AssetId<ColorMaterial>>,
+}
 
- impl DrawableOn for Frame<'_, '_> {
-     fn draw_text(
-         &mut self,
-         _text: &str,
-         _color_rgb: (u8, u8, u8),
-         _x: usize,
-         _y: usize,
-         _size: f32,
-     ) {
-         let text_font = TextFont {
-             font_size: 50.,
-             ..Default::default()
-         };
- 
-         self.commands.spawn((
-             Text2d::new("Hello"),
-             text_font,
-             TextLayout::new_with_justify(Justify::Center),
-             TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-             Text2dShadow::default(),
-             TextColor::WHITE,
-         ));
-     }
- 
-     fn height(&self) -> usize {
-         Y_EXTENT as usize
-     }
- 
-     fn width(&self)  -> usize {
-         X_EXTENT as usize
-     }
- 
-     fn fill_rectangle(
-         &mut self,
-         size: (usize, usize),
-         color_rgb: (u8, u8, u8),
-         top_left: (usize, usize),
-     ) {
-         self.commands.spawn(Camera2d);
- 
-         let rectangle = self
-             .meshes
-             .add(Rectangle::new(size.0 as f32, size.1 as f32));
- 
-         let rectangle_entity = self.commands.spawn((
-             Mesh2d(rectangle),
-             MeshMaterial2d(self.materials.add(Color::linear_rgb(
-                 color_rgb.0 as f32 / 255.,
-                 color_rgb.1 as f32 / 255.,
-                 color_rgb.2 as f32 / 255.,
-             ))),
-             Transform::from_xyz(
-                 (top_left.0 as f32) - X_EXTENT / 2.,
-                  -(top_left.1 as f32) + Y_EXTENT / 2.,
-                 0.,
-             ),
-         ));
- 
-         self.entities.entities.push(rectangle_entity.id());
-     }
- }
- 
+struct Frame<'a, 'b, 'c, 'd, 'e> {
+    commands: Commands<'a, 'b>,
+    meshes: ResMut<'a, Assets<Mesh>>,
+    materials: ResMut<'a, Assets<ColorMaterial>>,
+    entities: ResMut<'a, Entities>,
+    rect_query: Query<
+        'a,
+        'b,
+        (
+            &'c mut Transform,
+            &'d mut Visibility,
+            &'e mut MeshMaterial2d<ColorMaterial>,
+        ),
+    >,
+}
+
+impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
+    fn draw_text(
+        &mut self,
+        _text: &str,
+        _color_rgb: (u8, u8, u8),
+        _x: usize,
+        _y: usize,
+        _size: f32,
+    ) {
+        let text_font = TextFont {
+            font_size: 50.,
+            ..Default::default()
+        };
+
+        self.commands.spawn((
+            Text2d::new("Hello"),
+            text_font,
+            TextLayout::new_with_justify(Justify::Center),
+            TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
+            Text2dShadow::default(),
+            TextColor::WHITE,
+        ));
+    }
+
+    fn height(&self) -> usize {
+        Y_EXTENT as usize
+    }
+
+    fn width(&self) -> usize {
+        X_EXTENT as usize
+    }
+
+    fn fill_rectangle(
+        &mut self,
+        size: (usize, usize),
+        color_rgb: (u8, u8, u8),
+        top_left: (usize, usize),
+    ) {
+        let rect_x = (top_left.0 as f32) - X_EXTENT / 2.;
+        let rect_y = -(top_left.1 as f32) + Y_EXTENT / 2.;
+        let rect_z = 0.;
+
+        let color_id = self.entities.materials.entry(color_rgb).or_insert(
+            self.materials
+                .add(Color::linear_rgb(
+                    color_rgb.0 as f32 / 255.,
+                    color_rgb.1 as f32 / 255.,
+                    color_rgb.2 as f32 / 255.,
+                ))
+                .id(),
+        );
+
+        let color_material_handle = self
+            .materials
+            .get_strong_handle(*color_id)
+            .expect("Cannot fail");
+
+        let rectangle = self
+            .meshes // Add should only occur once
+            .add(Rectangle::new(size.0 as f32, size.1 as f32));
+        match self.entities.unused_rects.pop() {
+            Some(rect) => {
+                let (mut transform, mut vis, mut color) =
+                    self.rect_query.get_mut(rect).expect("Cannot fail");
+                transform.translation = Vec3::new(rect_x, rect_y, rect_z);
+                *vis = Visibility::Visible;
+                *color = MeshMaterial2d(color_material_handle);
+                self.entities.used_rects.push(rect);
+            }
+            None => {
+                let rectangle_entity = self.commands.spawn((
+                    Mesh2d(rectangle),
+                    // Add should only occur once
+                    MeshMaterial2d(color_material_handle),
+                    Transform::from_xyz(rect_x, rect_y, rect_z),
+                ));
+
+                self.entities.used_rects.push(rectangle_entity.id());
+            }
+        }
+        self.entities.unused_rects.iter().for_each(|entity| {
+            let (_transform, mut vis, mut mesh) =
+                self.rect_query.get_mut(*entity).expect("Cannot fail");
+            *vis = Visibility::Hidden;
+        });
+    }
+}
+
 fn update_time(mut game_with_menu: ResMut<GameWithMenuResource>) {
     game_with_menu.0.update(Instant::now());
 }
- fn draw_frame(
-     mut commands: Commands,
-     meshes: ResMut<Assets<Mesh>>,
-     materials: ResMut<Assets<ColorMaterial>>,
-     mut entities: ResMut<Entities>,
-     game_with_menu: ResMut<GameWithMenuResource>,
- ) {
-     println!("Draw_frame was called!");
-     entities.entities.iter().for_each(|entity| {
-         commands.entity(*entity).despawn();
-     });
-     entities.entities.clear();
-     println!("Capacity: {}", entities.entities.capacity());
-     let mut frame = Frame {
-         commands,
-         meshes,
-         materials,
-         entities,
-     };
+fn draw_frame(
+    commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
+    mut entities: ResMut<Entities>,
+    game_with_menu: ResMut<GameWithMenuResource>,
+    rect_query: Query<(
+        &mut Transform,
+        &mut Visibility,
+        &mut MeshMaterial2d<ColorMaterial>,
+    )>,
+) {
+    let mut buffer = Vec::new();
+    buffer.append(&mut entities.used_rects);
+    entities.unused_rects.append(&mut buffer);
+
+    let mut frame = Frame {
+        commands,
+        meshes,
+        materials,
+        entities,
+        rect_query,
+    };
     game_with_menu.0.draw(&mut frame);
 }
