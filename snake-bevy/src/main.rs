@@ -63,20 +63,6 @@ const Y_EXTENT: f32 = 620.;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-
-    let text_font: TextFont = TextFont {
-        font_size: 50.,
-        ..Default::default()
-    };
-
-    commands.spawn((
-        Text2d::new("Hello"),
-        text_font,
-        TextLayout::new_with_justify(Justify::Center),
-        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-        Text2dShadow::default(),
-        TextColor::WHITE,
-    ));
 }
 
 fn snake_space_pressed(mut game_with_menu: ResMut<GameWithMenuResource>) {
@@ -108,7 +94,7 @@ struct Entities {
     used_text: Vec<Entity>,
 }
 
-struct Frame<'a, 'b, 'c, 'd, 'e> {
+struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> {
     commands: Commands<'a, 'b>,
     meshes: ResMut<'a, Assets<Mesh>>,
     materials: ResMut<'a, Assets<ColorMaterial>>,
@@ -121,33 +107,69 @@ struct Frame<'a, 'b, 'c, 'd, 'e> {
             &'d mut Visibility,
             &'e mut MeshMaterial2d<ColorMaterial>,
         ),
+        Without<Text2d>,
+    >,
+    text_query: Query<
+        'a,
+        'b,
+        (
+            &'f mut Transform,
+            &'g mut Visibility,
+            &'h mut TextColor,
+            &'i mut Text2d,
+        ),
+        Without<MeshMaterial2d<ColorMaterial>>,
     >,
 }
 
-impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
-    fn draw_text(
-        &mut self,
-        _text: &str,
-        _color_rgb: (u8, u8, u8),
-        _x: usize,
-        _y: usize,
-        _size: f32,
-    ) {
-        let text_font = TextFont {
-            font_size: 50.,
-            ..Default::default()
-        };
+impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_> {
+    fn draw_text(&mut self, text: &str, color_rgb: (u8, u8, u8), x: usize, y: usize, size: f32) {
+        let text_x = (x as f32) - X_EXTENT / 2.;
+        let text_y = -(y as f32) + Y_EXTENT / 2.;
 
-        self.commands.spawn((
-            Text2d::new("Hello"),
-            text_font,
-            TextLayout::new_with_justify(Justify::Center),
-            TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
-            Text2dShadow::default(),
-            TextColor::WHITE,
+        let text_z = 0f32;
+        let text_color = TextColor(Color::linear_rgb(
+            color_rgb.0 as f32 / 255.,
+            color_rgb.1 as f32 / 255.,
+            color_rgb.2 as f32 / 255.,
         ));
-    }
 
+        match self.entities.unused_text.pop() {
+            Some(t) => {
+                let (mut transform, mut vis, mut color, mut text_comp) =
+                    self.text_query.get_mut(t).expect("Cannot fail");
+                transform.translation = Vec3::new(text_x, text_y, text_z);
+                *vis = Visibility::Visible;
+                *color = text_color;
+                text_comp.0 = text.to_string();
+                self.entities.used_text.push(t);
+            }
+            None => {
+                let text_font: TextFont = TextFont {
+                    font_size: size / 1.2,
+                    ..Default::default()
+                };
+
+                let text_entity = self.commands.spawn((
+                    Text2d::new(text.to_string()),
+                    text_font,
+                    Transform::from_xyz(0., 100., 0.),
+                    Text2dShadow::default(),
+                    text_color,
+                ));
+                self.entities.used_text.push(text_entity.id());
+            }
+        }
+
+        //   Going over all leftover text and then doing the following:
+        self.entities.unused_text.iter().for_each(|entity| {
+            //   Destructuring queries entity
+            let (_transform, mut vis, _, _text) =
+                self.text_query.get_mut(*entity).expect("Cannot fail");
+            //   Changing their visibility to invisible
+            *vis = Visibility::Hidden;
+        });
+    }
     fn height(&self) -> usize {
         Y_EXTENT as usize
     }
@@ -162,11 +184,11 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
         color_rgb: (u8, u8, u8),
         top_left: (usize, usize),
     ) {
-        // Position xyz for rectangle
+        //   Position xyz for rectangle
         let rect_x = (top_left.0 as f32) - X_EXTENT / 2.;
         let rect_y = -(top_left.1 as f32) + Y_EXTENT / 2.;
         let rect_z = 0.;
-        // This takes the color id from the btreemap and inserts the id if it is not there.
+        //   This takes the color id from the btreemap and inserts the id if it is not there.
         let color_id = self.entities.materials.entry(color_rgb).or_insert(
             self.materials
                 .add(Color::linear_rgb(
@@ -189,13 +211,13 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
             Some(rect) => {
                 let (mut transform, mut vis, mut color) =
                     self.rect_query.get_mut(rect).expect("Cannot fail");
-                // Changing the position to the desired position (See rect_x/y/z)
+                //   Changing the position to the desired position (See rect_x/y/z)
                 transform.translation = Vec3::new(rect_x, rect_y, rect_z);
-                // Making the rectangle visible
+                //   Making the rectangle visible
                 *vis = Visibility::Visible;
-                // Changing the color the color_material_handle color
+                //   Changing the color the color_material_handle color
                 *color = MeshMaterial2d(color_material_handle);
-                // Adding the drawn rectangle to the used list
+                //   Adding the drawn rectangle to the used list
                 self.entities.used_rects.push(rect);
             }
             None => {
@@ -205,16 +227,16 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
                     Transform::from_xyz(rect_x, rect_y, rect_z),
                 ));
 
-                // Adding the drawn rectangle to the used list
+                //   Adding the drawn rectangle to the used list
                 self.entities.used_rects.push(rectangle_entity.id());
             }
         }
 
-        // Going over all leftover rectangles and then doing the following:
+        //   Going over all leftover rectangles and then doing the following:
         self.entities.unused_rects.iter().for_each(|entity| {
-            // Destructuring queries entity
+            //   Destructuring queries entity
             let (_transform, mut vis, _) = self.rect_query.get_mut(*entity).expect("Cannot fail");
-            // Changing their visibility to invisible
+            //   Changing their visibility to invisible
             *vis = Visibility::Hidden;
         });
     }
@@ -229,23 +251,37 @@ fn draw_frame(
     materials: ResMut<Assets<ColorMaterial>>,
     mut entities: ResMut<Entities>,
     game_with_menu: ResMut<GameWithMenuResource>,
-    rect_query: Query<(
-        &mut Transform,
-        &mut Visibility,
-        &mut MeshMaterial2d<ColorMaterial>,
-    )>,
+    rect_query: Query<
+        (
+            &mut Transform,
+            &mut Visibility,
+            &mut MeshMaterial2d<ColorMaterial>,
+        ),
+        Without<Text2d>,
+    >,
+    text_query: Query<
+        (&mut Transform, &mut Visibility, &mut TextColor, &mut Text2d),
+        Without<MeshMaterial2d<ColorMaterial>>,
+    >,
 ) {
-    // Adding all used rectangles to the unused ones.
-    let mut buffer = Vec::new();
-    buffer.append(&mut entities.used_rects);
-    entities.unused_rects.append(&mut buffer);
-
+    //   Adding all used rectangles to the unused ones.
+    {
+        let mut buffer = Vec::new();
+        buffer.append(&mut entities.used_rects);
+        entities.unused_rects.append(&mut buffer);
+    }
+    {
+        let mut buffer = Vec::new();
+        buffer.append(&mut entities.used_text);
+        entities.unused_text.append(&mut buffer);
+    }
     let mut frame = Frame {
         commands,
         meshes,
         materials,
         entities,
         rect_query,
+        text_query,
     };
     game_with_menu.0.draw(&mut frame);
 }
