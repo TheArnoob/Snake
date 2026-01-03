@@ -1,4 +1,5 @@
-use std::{collections::BTreeMap, time::Instant};
+use bevy::platform::time::Instant;
+use std::collections::BTreeMap;
 
 use bevy::{
     asset::load_internal_binary_asset, input::common_conditions::input_just_pressed, prelude::*,
@@ -60,11 +61,7 @@ fn main() {
 const X_EXTENT: f32 = 1220.;
 const Y_EXTENT: f32 = 620.;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     let text_font: TextFont = TextFont {
@@ -107,6 +104,8 @@ struct Entities {
     used_rects: Vec<Entity>,
     unused_rects: Vec<Entity>,
     materials: BTreeMap<(u8, u8, u8), AssetId<ColorMaterial>>,
+    unused_text: Vec<Entity>,
+    used_text: Vec<Entity>,
 }
 
 struct Frame<'a, 'b, 'c, 'd, 'e> {
@@ -214,8 +213,7 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_> {
         // Going over all leftover rectangles and then doing the following:
         self.entities.unused_rects.iter().for_each(|entity| {
             // Destructuring queries entity
-            let (_transform, mut vis, mut mesh) =
-                self.rect_query.get_mut(*entity).expect("Cannot fail");
+            let (_transform, mut vis, _) = self.rect_query.get_mut(*entity).expect("Cannot fail");
             // Changing their visibility to invisible
             *vis = Visibility::Hidden;
         });
