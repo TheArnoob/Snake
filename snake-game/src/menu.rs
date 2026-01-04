@@ -33,6 +33,7 @@ impl Menu {
         self.setting.previous_difficulty();
     }
 
+    #[cfg(test)]
     pub fn new() -> Menu {
         Menu {
             selected_option: SelectedOption::default(),
@@ -72,9 +73,6 @@ impl Menu {
                 SelectedOption::Settings => {
                     self.set_menu_type(MenuType::SettingsMenu);
                     MenuAction::NoOp
-                }
-                SelectedOption::Exit => {
-                    std::process::exit(0);
                 }
                 SelectedOption::NewGame => MenuAction::NewGame,
             },
@@ -119,7 +117,6 @@ pub enum SelectedOption {
     #[default]
     NewGame,
     Settings,
-    Exit,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -226,7 +223,6 @@ impl SelectedOption {
         match self {
             SelectedOption::NewGame => "New Game",
             SelectedOption::Settings => "Settings",
-            SelectedOption::Exit => "Exit",
         }
     }
 }
@@ -242,16 +238,16 @@ mod test {
         option.next_selection();
         assert_eq!(option, SelectedOption::Settings);
         option.next_selection();
-        assert_eq!(option, SelectedOption::Exit);
-        option.next_selection();
         assert_eq!(option, SelectedOption::NewGame);
+        option.next_selection();
+        assert_eq!(option, SelectedOption::Settings);
         option.previous_selection();
-        assert_eq!(option, SelectedOption::Exit);
+        assert_eq!(option, SelectedOption::NewGame);
         option.previous_selection();
         assert_eq!(option, SelectedOption::Settings);
         option.previous_selection();
         assert_eq!(option, SelectedOption::NewGame);
         option.previous_selection();
-        assert_eq!(option, SelectedOption::Exit);
+        assert_eq!(option, SelectedOption::Settings);
     }
 }

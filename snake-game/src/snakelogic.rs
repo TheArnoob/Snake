@@ -253,16 +253,13 @@ mod tests {
             logic.position_food = (0, 0);
             assert!(!logic.next_step().is_over());
             assert_eq!(*logic.snake(), [(24, 24), (23, 24)]);
-            // println!("State: {logic:?}");
 
             assert!(!logic.next_step().is_over());
             assert_eq!(*logic.snake(), [(24, 24), (23, 24), (22, 24)]);
-            // println!("State: {logic:?}");
 
             assert!(!logic.next_step().is_over());
             assert_eq!(logic.amount_of_growth, 0);
             assert_eq!(*logic.snake(), [(23, 24), (22, 24), (21, 24)]);
-            // println!("State: {logic:?}");
             assert!(!logic.next_step().is_over());
 
             assert_eq!(*logic.snake(), [(22, 24), (21, 24), (20, 24)])

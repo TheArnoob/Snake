@@ -101,6 +101,7 @@ impl SnakeGame {
         self.snake_logic.snake()
     }
 
+    #[cfg(test)]
     pub fn direction(&self) -> Direction {
         self.snake_logic.direction()
     }
@@ -134,10 +135,6 @@ impl SnakeGame {
                 self.last_game_result = self.snake_logic.next_step();
             }
             self.last_logic_update = now;
-        }
-
-        if self.snake().len() == (self.height() * self.width()) {
-            println!("You Win! Great job!")
         }
     }
 }

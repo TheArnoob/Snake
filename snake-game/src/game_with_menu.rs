@@ -236,7 +236,7 @@ mod tests {
         game_with_menu.up_pressed();
         assert_eq!(
             game_with_menu.menu.selected_option(),
-            SelectedOption::Exit as u8
+            SelectedOption::Settings as u8
         );
 
         game_with_menu.game_or_menu = GameOrMenu::InGame;

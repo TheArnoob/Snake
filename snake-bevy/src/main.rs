@@ -90,11 +90,12 @@ struct Entities {
     used_rects: Vec<Entity>,
     unused_rects: Vec<Entity>,
     materials: BTreeMap<(u8, u8, u8), AssetId<ColorMaterial>>,
+    mesh_map: BTreeMap<(usize, usize), AssetId<Mesh>>,
     unused_text: Vec<Entity>,
     used_text: Vec<Entity>,
 }
 
-struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> {
+struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j> {
     commands: Commands<'a, 'b>,
     meshes: ResMut<'a, Assets<Mesh>>,
     materials: ResMut<'a, Assets<ColorMaterial>>,
@@ -106,6 +107,7 @@ struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> {
             &'c mut Transform,
             &'d mut Visibility,
             &'e mut MeshMaterial2d<ColorMaterial>,
+            &'j mut Mesh2d,
         ),
         Without<Text2d>,
     >,
@@ -122,7 +124,7 @@ struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i> {
     >,
 }
 
-impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_> {
+impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
     fn draw_text(&mut self, text: &str, color_rgb: (u8, u8, u8), x: usize, y: usize, size: f32) {
         let text_x = (x as f32) - X_EXTENT / 2.;
         let text_y = -(y as f32) + Y_EXTENT / 2.;
@@ -204,17 +206,26 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_> {
             .get_strong_handle(*color_id)
             .expect("Cannot fail");
 
+        let rectangle_id = self.entities.mesh_map.entry(size).or_insert(
+            self.meshes
+                .add(Rectangle::new(size.0 as f32, size.1 as f32))
+                .id(),
+        );
+
         let rectangle = self
-            .meshes // Add should only occur once
-            .add(Rectangle::new(size.0 as f32, size.1 as f32));
+            .meshes
+            .get_strong_handle(*rectangle_id)
+            .expect("Cannot fail");
+
         match self.entities.unused_rects.pop() {
             Some(rect) => {
-                let (mut transform, mut vis, mut color) =
+                let (mut transform, mut vis, mut color, mut mesh) =
                     self.rect_query.get_mut(rect).expect("Cannot fail");
                 //   Changing the position to the desired position (See rect_x/y/z)
                 transform.translation = Vec3::new(rect_x, rect_y, rect_z);
                 //   Making the rectangle visible
                 *vis = Visibility::Visible;
+                *mesh = Mesh2d(rectangle);
                 //   Changing the color the color_material_handle color
                 *color = MeshMaterial2d(color_material_handle);
                 //   Adding the drawn rectangle to the used list
@@ -222,9 +233,9 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_> {
             }
             None => {
                 let rectangle_entity = self.commands.spawn((
-                    Mesh2d(rectangle),
                     MeshMaterial2d(color_material_handle),
                     Transform::from_xyz(rect_x, rect_y, rect_z),
+                    Mesh2d(rectangle),
                 ));
 
                 //   Adding the drawn rectangle to the used list
@@ -235,7 +246,8 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_> {
         //   Going over all leftover rectangles and then doing the following:
         self.entities.unused_rects.iter().for_each(|entity| {
             //   Destructuring queries entity
-            let (_transform, mut vis, _) = self.rect_query.get_mut(*entity).expect("Cannot fail");
+            let (_transform, mut vis, _, _) =
+                self.rect_query.get_mut(*entity).expect("Cannot fail");
             //   Changing their visibility to invisible
             *vis = Visibility::Hidden;
         });
@@ -256,6 +268,7 @@ fn draw_frame(
             &mut Transform,
             &mut Visibility,
             &mut MeshMaterial2d<ColorMaterial>,
+            &mut Mesh2d,
         ),
         Without<Text2d>,
     >,
