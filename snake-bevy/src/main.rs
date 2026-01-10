@@ -1,5 +1,8 @@
 use bevy::platform::time::Instant;
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, VecDeque},
+    f32::consts::PI,
+};
 
 use bevy::{
     asset::load_internal_binary_asset, input::common_conditions::input_just_pressed, prelude::*,
@@ -10,11 +13,113 @@ use snake_game::{game_with_menu::GameWithMenu, traits::DrawableOn};
 #[derive(Debug, bevy::prelude::Resource, Default)]
 struct GameWithMenuResource(GameWithMenu);
 
+#[derive(Resource, Debug, Default)]
+struct MousePositions {
+    mouse_positions: VecDeque<(f32, f32)>,
+}
+
+#[repr(u8)]
+#[derive(Debug, PartialEq)]
+#[must_use]
+enum MouseDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+    Tap,
+    NoOp,
+}
+
+#[derive(Debug)]
+enum FitResult {
+    TooSmall,
+    Normal(f32),
+    InfinitySlope,
+    NoOp,
+}
+
+impl MousePositions {
+    const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 15;
+
+    fn new() -> Self {
+        Self {
+            mouse_positions: VecDeque::new(),
+        }
+    }
+
+    fn linear_fit(&self) -> FitResult {
+        if self.mouse_positions.is_empty() {
+            return FitResult::NoOp;
+        }
+        if self.mouse_positions.len() < Self::SMALLEST_SIZE_OF_MOUSE_MOVE {
+            return FitResult::TooSmall;
+        }
+        let x_average = self.mouse_positions.iter().map(|(x, _)| x).sum::<f32>()
+            / self.mouse_positions.len() as f32;
+        let y_average = self.mouse_positions.iter().map(|(_, y)| y).sum::<f32>()
+            / self.mouse_positions.len() as f32;
+
+        let slope_denominator = self
+            .mouse_positions
+            .iter()
+            .map(|(x, _)| (x - x_average) * (x - x_average))
+            .sum::<f32>();
+        let slope_numerator = self
+            .mouse_positions
+            .iter()
+            .map(|(x, y)| (x - x_average) * (y - y_average))
+            .sum::<f32>();
+        if slope_denominator == 0. {
+            return FitResult::InfinitySlope;
+        }
+        FitResult::Normal(slope_numerator / slope_denominator)
+    }
+
+    fn direction(&self) -> MouseDirection {
+        match self.linear_fit() {
+            FitResult::TooSmall => MouseDirection::Tap,
+            FitResult::Normal(slope) => {
+                let angle = slope.atan();
+                if angle < PI / 4. && angle > -PI / 4. {
+                    if self.mouse_positions.front().expect("Empty Vector").0
+                        < self.mouse_positions.back().expect("Empty Vector").0
+                    {
+                        return MouseDirection::Right;
+                    } else {
+                        return MouseDirection::Left;
+                    }
+                } else {
+                    if self.mouse_positions.front().expect("Empty Vector").1
+                        < self.mouse_positions.back().expect("Empty Vector").1
+                    {
+                        return MouseDirection::Up;
+                    } else {
+                        return MouseDirection::Down;
+                    }
+                }
+            }
+            FitResult::InfinitySlope => {
+                if self.mouse_positions.front().expect("Empty Vector").1
+                    < self.mouse_positions.back().expect("Empty Vector").1
+                {
+                    MouseDirection::Up
+                } else {
+                    MouseDirection::Down
+                }
+            }
+            FitResult::NoOp => MouseDirection::NoOp,
+        }
+    }
+}
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
     app.init_resource::<GameWithMenuResource>();
+
+    app.init_resource::<MousePositions>();
+
     app.init_resource::<Entities>();
 
     app.add_systems(Startup, setup)
@@ -23,6 +128,7 @@ fn main() {
             snake_space_pressed.run_if(input_just_pressed(KeyCode::Space)),
         )
         .add_systems(Update, (update_time, draw_frame).chain())
+        .add_systems(Update, mouse_system)
         .add_systems(
             Update,
             snake_left_pressed.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -297,4 +403,183 @@ fn draw_frame(
         text_query,
     };
     game_with_menu.0.draw(&mut frame);
+}
+
+fn mouse_system(
+    windows: Query<&Window>,
+    camera_q: Query<(&Camera, &GlobalTransform), With<Camera>>,
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut mouse_positions: ResMut<MousePositions>,
+    mut game_with_menu: ResMut<GameWithMenuResource>,
+) {
+    let window = windows.single();
+    let (camera, camera_transform) = camera_q.single().unwrap();
+
+    if buttons.pressed(MouseButton::Left) {
+        if let Some(world_position) = window
+            .unwrap()
+            .cursor_position()
+            .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+        {
+            mouse_positions
+                .mouse_positions
+                .push_back(world_position.into());
+
+            if mouse_positions.mouse_positions.len() > 1000 {
+                mouse_positions.mouse_positions.pop_front();
+            }
+        }
+    } else if !buttons.pressed(MouseButton::Left) {
+        match mouse_positions.direction() {
+            MouseDirection::Up => game_with_menu.0.up_pressed(),
+            MouseDirection::Down => game_with_menu.0.down_pressed(),
+            MouseDirection::Left => game_with_menu.0.left_pressed(),
+            MouseDirection::Right => game_with_menu.0.right_pressed(),
+            MouseDirection::Tap => game_with_menu.0.enter_or_space_pressed(),
+            MouseDirection::NoOp => {}
+        }
+        mouse_positions.mouse_positions.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use crate::{MouseDirection, MousePositions};
+
+    #[test]
+    fn direction() {
+        {
+            let mouse_positions = MousePositions::new();
+            assert_eq!(mouse_positions.direction(), MouseDirection::NoOp);
+        }
+        {
+            let mut mouse_positions = MousePositions::new();
+            mouse_positions.mouse_positions.push_back((1., 1.));
+            assert_eq!(mouse_positions.direction(), MouseDirection::Tap);
+        }
+
+        {
+            let mouse_positions = MousePositions {
+                mouse_positions: [
+                    (1., 1.),
+                    (0., 2.),
+                    (1., 3.),
+                    (2., 4.),
+                    (3., 5.),
+                    (4., 6.),
+                    (3., 7.),
+                    (2., 8.),
+                    (1., 9.),
+                    (2., 10.),
+                    (3., 11.),
+                    (2., 12.),
+                    (3., 13.),
+                    (4., 14.),
+                    (3., 15.),
+                    (2., 16.),
+                ]
+                .into(),
+            };
+
+            assert_eq!(mouse_positions.direction(), MouseDirection::Up);
+            let mouse_positions = mouse_positions
+                .mouse_positions
+                .clone()
+                .into_iter()
+                .rev()
+                .collect::<VecDeque<(f32, f32)>>();
+            assert_eq!(
+                MousePositions { mouse_positions }.direction(),
+                MouseDirection::Down
+            );
+        }
+
+        {
+            let mouse_positions = MousePositions {
+                mouse_positions: (0..=17).map(|i| (0., i as f32)).collect(),
+            };
+            assert_eq!(mouse_positions.direction(), MouseDirection::Up);
+            let mouse_positions = mouse_positions
+                .mouse_positions
+                .clone()
+                .into_iter()
+                .rev()
+                .collect::<VecDeque<(f32, f32)>>();
+            assert_eq!(
+                MousePositions { mouse_positions }.direction(),
+                MouseDirection::Down
+            );
+        }
+        {
+            let positions = MousePositions {
+                mouse_positions: [
+                    (3., 1.),
+                    (4., 2.),
+                    (5., 2.),
+                    (6., 1.),
+                    (7., 2.),
+                    (8., 1.),
+                    (9., 1.),
+                    (10., 1.),
+                    (11., 3.),
+                    (12., 2.),
+                    (13., 5.),
+                    (14., 6.),
+                    (15., 4.),
+                    (16., 2.),
+                    (17., 1.),
+                    (18., 2.),
+                ]
+                .into(),
+            };
+
+            assert_eq!(positions.direction(), MouseDirection::Right);
+
+            let mouse_positions: VecDeque<(f32, f32)> = positions
+                .mouse_positions
+                .clone()
+                .into_iter()
+                .rev()
+                .collect();
+            let mouse_positions = MousePositions { mouse_positions };
+            assert_eq!(mouse_positions.direction(), MouseDirection::Left)
+        }
+
+        {
+            let positions = MousePositions {
+                mouse_positions: [
+                    (3., 1.),
+                    (4., 1.),
+                    (5., 1.),
+                    (6., 1.),
+                    (7., 1.),
+                    (8., 1.),
+                    (9., 1.),
+                    (10., 1.),
+                    (11., 1.),
+                    (12., 1.),
+                    (13., 1.),
+                    (14., 1.),
+                    (15., 1.),
+                    (16., 1.),
+                    (17., 1.),
+                    (18., 1.),
+                ]
+                .into(),
+            };
+
+            assert_eq!(positions.direction(), MouseDirection::Right);
+
+            let mouse_positions: VecDeque<(f32, f32)> = positions
+                .mouse_positions
+                .clone()
+                .into_iter()
+                .rev()
+                .collect();
+            let mouse_positions = MousePositions { mouse_positions };
+            assert_eq!(mouse_positions.direction(), MouseDirection::Left)
+        }
+    }
 }
