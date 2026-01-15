@@ -39,8 +39,9 @@ enum FitResult {
 }
 
 impl MousePositions {
-    const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 15;
+    const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 3;
 
+    #[cfg(test)]
     fn new() -> Self {
         Self {
             mouse_positions: VecDeque::new(),
@@ -92,9 +93,9 @@ impl MousePositions {
                     if self.mouse_positions.front().expect("Empty Vector").1
                         < self.mouse_positions.back().expect("Empty Vector").1
                     {
-                        return MouseDirection::Up;
-                    } else {
                         return MouseDirection::Down;
+                    } else {
+                        return MouseDirection::Up;
                     }
                 }
             }
@@ -102,9 +103,9 @@ impl MousePositions {
                 if self.mouse_positions.front().expect("Empty Vector").1
                     < self.mouse_positions.back().expect("Empty Vector").1
                 {
-                    MouseDirection::Up
-                } else {
                     MouseDirection::Down
+                } else {
+                    MouseDirection::Up
                 }
             }
             FitResult::NoOp => MouseDirection::NoOp,
@@ -128,7 +129,7 @@ fn main() {
             snake_space_pressed.run_if(input_just_pressed(KeyCode::Space)),
         )
         .add_systems(Update, (update_time, draw_frame).chain())
-        .add_systems(Update, mouse_system)
+        .add_systems(Update, touch_system)
         .add_systems(
             Update,
             snake_left_pressed.run_if(input_just_pressed(KeyCode::ArrowLeft)),
@@ -405,40 +406,32 @@ fn draw_frame(
     game_with_menu.0.draw(&mut frame);
 }
 
-fn mouse_system(
-    windows: Query<&Window>,
-    camera_q: Query<(&Camera, &GlobalTransform), With<Camera>>,
-    buttons: Res<ButtonInput<MouseButton>>,
+fn touch_system(
+    touches: Res<Touches>,
     mut mouse_positions: ResMut<MousePositions>,
     mut game_with_menu: ResMut<GameWithMenuResource>,
 ) {
-    let window = windows.single();
-    let (camera, camera_transform) = camera_q.single().unwrap();
-
-    if buttons.pressed(MouseButton::Left) {
-        if let Some(world_position) = window
-            .unwrap()
-            .cursor_position()
-            .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
-        {
+    match touches.iter().next() {
+        Some(touch) => {
             mouse_positions
                 .mouse_positions
-                .push_back(world_position.into());
+                .push_back((touch.position().x, touch.position().y));
 
             if mouse_positions.mouse_positions.len() > 1000 {
                 mouse_positions.mouse_positions.pop_front();
             }
         }
-    } else if !buttons.pressed(MouseButton::Left) {
-        match mouse_positions.direction() {
-            MouseDirection::Up => game_with_menu.0.up_pressed(),
-            MouseDirection::Down => game_with_menu.0.down_pressed(),
-            MouseDirection::Left => game_with_menu.0.left_pressed(),
-            MouseDirection::Right => game_with_menu.0.right_pressed(),
-            MouseDirection::Tap => game_with_menu.0.enter_or_space_pressed(),
-            MouseDirection::NoOp => {}
+        None => {
+            match mouse_positions.direction() {
+                MouseDirection::Up => game_with_menu.0.up_pressed(),
+                MouseDirection::Down => game_with_menu.0.down_pressed(),
+                MouseDirection::Left => game_with_menu.0.left_pressed(),
+                MouseDirection::Right => game_with_menu.0.right_pressed(),
+                MouseDirection::Tap => game_with_menu.0.enter_or_space_pressed(),
+                MouseDirection::NoOp => {}
+            }
+            mouse_positions.mouse_positions.clear();
         }
-        mouse_positions.mouse_positions.clear();
     }
 }
 
@@ -483,7 +476,7 @@ mod tests {
                 .into(),
             };
 
-            assert_eq!(mouse_positions.direction(), MouseDirection::Up);
+            assert_eq!(mouse_positions.direction(), MouseDirection::Down);
             let mouse_positions = mouse_positions
                 .mouse_positions
                 .clone()
@@ -492,7 +485,7 @@ mod tests {
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
                 MousePositions { mouse_positions }.direction(),
-                MouseDirection::Down
+                MouseDirection::Up
             );
         }
 
@@ -500,7 +493,7 @@ mod tests {
             let mouse_positions = MousePositions {
                 mouse_positions: (0..=17).map(|i| (0., i as f32)).collect(),
             };
-            assert_eq!(mouse_positions.direction(), MouseDirection::Up);
+            assert_eq!(mouse_positions.direction(), MouseDirection::Down);
             let mouse_positions = mouse_positions
                 .mouse_positions
                 .clone()
@@ -509,7 +502,7 @@ mod tests {
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
                 MousePositions { mouse_positions }.direction(),
-                MouseDirection::Down
+                MouseDirection::Up
             );
         }
         {
