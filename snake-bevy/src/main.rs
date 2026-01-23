@@ -1,4 +1,4 @@
-const DOUBLE_TAP_TIMEOUT: u64 = 500;
+const DOUBLE_TAP_TIMEOUT: Duration = Duration::from_millis(500);
 
 use bevy::platform::time::Instant;
 use std::{
@@ -86,9 +86,7 @@ impl TouchPositions {
             FitResult::TooSmall => {
                 match self.time_of_last_tap {
                     Some(time_of_last_tap) => {
-                        if Instant::now() - time_of_last_tap
-                            < Duration::from_millis(DOUBLE_TAP_TIMEOUT)
-                        {
+                        if Instant::now() - time_of_last_tap < DOUBLE_TAP_TIMEOUT {
                             self.time_of_last_tap = None;
 
                             return SwipeDirection::DoubleTap;
