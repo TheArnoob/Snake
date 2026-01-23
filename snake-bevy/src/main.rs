@@ -3,6 +3,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     f32::consts::PI,
 };
+use web_time::Duration;
 
 use bevy::{
     asset::load_internal_binary_asset, input::common_conditions::input_just_pressed, prelude::*,
@@ -12,11 +13,6 @@ use bevy::{
 use snake_game::{game_with_menu::GameWithMenu, traits::DrawableOn};
 #[derive(Debug, bevy::prelude::Resource, Default)]
 struct GameWithMenuResource(GameWithMenu);
-
-#[derive(Resource, Debug, Default)]
-struct MousePositions {
-    mouse_positions: VecDeque<(f32, f32)>,
-}
 
 #[repr(u8)]
 #[derive(Debug, PartialEq)]
@@ -28,6 +24,7 @@ enum MouseDirection {
     Right,
     Tap,
     NoOp,
+    DoubleTap,
 }
 
 #[derive(Debug)]
@@ -38,13 +35,20 @@ enum FitResult {
     NoOp,
 }
 
+#[derive(Resource, Debug, Default)]
+struct MousePositions {
+    mouse_positions: VecDeque<(f32, f32)>,
+    time_of_last_tap: Option<web_time::Instant>,
+}
+
 impl MousePositions {
-    const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 3;
+    const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 4;
 
     #[cfg(test)]
     fn new() -> Self {
         Self {
             mouse_positions: VecDeque::new(),
+            time_of_last_tap: None,
         }
     }
 
@@ -76,9 +80,23 @@ impl MousePositions {
         FitResult::Normal(slope_numerator / slope_denominator)
     }
 
-    fn direction(&self) -> MouseDirection {
+    fn direction(&mut self) -> MouseDirection {
         match self.linear_fit() {
-            FitResult::TooSmall => MouseDirection::Tap,
+            FitResult::TooSmall => {
+                match self.time_of_last_tap {
+                    Some(time_of_last_tap) => {
+                        if Instant::now() - time_of_last_tap < Duration::from_millis(1000) {
+                            self.time_of_last_tap = None;
+
+                            return MouseDirection::DoubleTap;
+                        } else {
+                            self.time_of_last_tap = None;
+                        }
+                    }
+                    None => self.time_of_last_tap = Some(Instant::now()),
+                }
+                MouseDirection::Tap
+            }
             FitResult::Normal(slope) => {
                 let angle = slope.atan();
                 if angle < PI / 4. && angle > -PI / 4. {
@@ -89,6 +107,10 @@ impl MousePositions {
                     } else {
                         return MouseDirection::Left;
                     }
+                } else if self.mouse_positions.front().expect("Empty Vector").1
+                    < self.mouse_positions.back().expect("Empty Vector").1
+                {
+                    MouseDirection::Down
                 } else {
                     if self.mouse_positions.front().expect("Empty Vector").1
                         < self.mouse_positions.back().expect("Empty Vector").1
@@ -427,8 +449,11 @@ fn touch_system(
                 MouseDirection::Down => game_with_menu.0.down_pressed(),
                 MouseDirection::Left => game_with_menu.0.left_pressed(),
                 MouseDirection::Right => game_with_menu.0.right_pressed(),
-                MouseDirection::Tap => game_with_menu.0.enter_or_space_pressed(),
+                MouseDirection::Tap => {}
                 MouseDirection::NoOp => {}
+                MouseDirection::DoubleTap => {
+                    game_with_menu.0.enter_or_space_pressed();
+                }
             }
             mouse_positions.mouse_positions.clear();
         }
@@ -444,7 +469,7 @@ mod tests {
     #[test]
     fn direction() {
         {
-            let mouse_positions = MousePositions::new();
+            let mut mouse_positions = MousePositions::new();
             assert_eq!(mouse_positions.direction(), MouseDirection::NoOp);
         }
         {
@@ -454,7 +479,7 @@ mod tests {
         }
 
         {
-            let mouse_positions = MousePositions {
+            let mut mouse_positions = MousePositions {
                 mouse_positions: [
                     (1., 1.),
                     (0., 2.),
@@ -474,6 +499,7 @@ mod tests {
                     (2., 16.),
                 ]
                 .into(),
+                time_of_last_tap: Some(web_time::Instant::now()),
             };
 
             assert_eq!(mouse_positions.direction(), MouseDirection::Down);
@@ -484,14 +510,19 @@ mod tests {
                 .rev()
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
-                MousePositions { mouse_positions }.direction(),
+                MousePositions {
+                    mouse_positions,
+                    time_of_last_tap: Some(web_time::Instant::now()),
+                }
+                .direction(),
                 MouseDirection::Up
             );
         }
 
         {
-            let mouse_positions = MousePositions {
+            let mut mouse_positions = MousePositions {
                 mouse_positions: (0..=17).map(|i| (0., i as f32)).collect(),
+                time_of_last_tap: Some(web_time::Instant::now()),
             };
             assert_eq!(mouse_positions.direction(), MouseDirection::Down);
             let mouse_positions = mouse_positions
@@ -501,12 +532,16 @@ mod tests {
                 .rev()
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
-                MousePositions { mouse_positions }.direction(),
+                MousePositions {
+                    mouse_positions,
+                    time_of_last_tap: Some(web_time::Instant::now()),
+                }
+                .direction(),
                 MouseDirection::Up
             );
         }
         {
-            let positions = MousePositions {
+            let mut positions = MousePositions {
                 mouse_positions: [
                     (3., 1.),
                     (4., 2.),
@@ -526,6 +561,7 @@ mod tests {
                     (18., 2.),
                 ]
                 .into(),
+                time_of_last_tap: Some(web_time::Instant::now()),
             };
 
             assert_eq!(positions.direction(), MouseDirection::Right);
@@ -536,12 +572,15 @@ mod tests {
                 .into_iter()
                 .rev()
                 .collect();
-            let mouse_positions = MousePositions { mouse_positions };
+            let mut mouse_positions = MousePositions {
+                mouse_positions,
+                time_of_last_tap: Some(web_time::Instant::now()),
+            };
             assert_eq!(mouse_positions.direction(), MouseDirection::Left)
         }
 
         {
-            let positions = MousePositions {
+            let mut positions = MousePositions {
                 mouse_positions: [
                     (3., 1.),
                     (4., 1.),
@@ -561,6 +600,7 @@ mod tests {
                     (18., 1.),
                 ]
                 .into(),
+                time_of_last_tap: Some(web_time::Instant::now()),
             };
 
             assert_eq!(positions.direction(), MouseDirection::Right);
@@ -571,7 +611,10 @@ mod tests {
                 .into_iter()
                 .rev()
                 .collect();
-            let mouse_positions = MousePositions { mouse_positions };
+            let mut mouse_positions = MousePositions {
+                mouse_positions,
+                time_of_last_tap: Some(web_time::Instant::now()),
+            };
             assert_eq!(mouse_positions.direction(), MouseDirection::Left)
         }
     }

@@ -12,5 +12,5 @@ bevy = { version = "0.17", features = [
     "debug",
 ], default-features = false }
 getrandom = { version = "0.3", features = ["wasm_js"] }
-
+web-time = "1.1"
 snake-game = { path = "../snake-game" }
