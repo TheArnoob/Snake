@@ -17,15 +17,16 @@ struct GameWithMenuResource(GameWithMenu);
 #[repr(u8)]
 #[derive(Debug, PartialEq)]
 #[must_use]
-enum MouseDirection {
+enum SwipeDirection {
     Up,
     Down,
     Left,
     Right,
-    Tap,
     NoOp,
     DoubleTap,
 }
+
+const TAP_TIME_DIFFERENCE: usize = 500;
 
 #[derive(Debug)]
 enum FitResult {
@@ -36,12 +37,12 @@ enum FitResult {
 }
 
 #[derive(Resource, Debug, Default)]
-struct MousePositions {
+struct TouchPositions {
     mouse_positions: VecDeque<(f32, f32)>,
     time_of_last_tap: Option<web_time::Instant>,
 }
 
-impl MousePositions {
+impl TouchPositions {
     const SMALLEST_SIZE_OF_MOUSE_MOVE: usize = 4;
 
     #[cfg(test)]
@@ -80,22 +81,24 @@ impl MousePositions {
         FitResult::Normal(slope_numerator / slope_denominator)
     }
 
-    fn direction(&mut self) -> MouseDirection {
+    fn direction(&mut self) -> SwipeDirection {
         match self.linear_fit() {
             FitResult::TooSmall => {
                 match self.time_of_last_tap {
                     Some(time_of_last_tap) => {
-                        if Instant::now() - time_of_last_tap < Duration::from_millis(1000) {
+                        if Instant::now() - time_of_last_tap
+                            < Duration::from_millis(TAP_TIME_DIFFERENCE as u64)
+                        {
                             self.time_of_last_tap = None;
 
-                            return MouseDirection::DoubleTap;
+                            return SwipeDirection::DoubleTap;
                         } else {
                             self.time_of_last_tap = None;
                         }
                     }
                     None => self.time_of_last_tap = Some(Instant::now()),
                 }
-                MouseDirection::Tap
+                SwipeDirection::NoOp
             }
             FitResult::Normal(slope) => {
                 let angle = slope.atan();
@@ -103,32 +106,32 @@ impl MousePositions {
                     if self.mouse_positions.front().expect("Empty Vector").0
                         < self.mouse_positions.back().expect("Empty Vector").0
                     {
-                        MouseDirection::Right
+                        SwipeDirection::Right
                     } else {
-                        MouseDirection::Left
+                        SwipeDirection::Left
                     }
                 } else if self.mouse_positions.front().expect("Empty Vector").1
                     < self.mouse_positions.back().expect("Empty Vector").1
                 {
-                    MouseDirection::Down
+                    SwipeDirection::Down
                 } else if self.mouse_positions.front().expect("Empty Vector").1
                     < self.mouse_positions.back().expect("Empty Vector").1
                 {
-                    MouseDirection::Down
+                    SwipeDirection::Down
                 } else {
-                    MouseDirection::Up
+                    SwipeDirection::Up
                 }
             }
             FitResult::InfinitySlope => {
                 if self.mouse_positions.front().expect("Empty Vector").1
                     < self.mouse_positions.back().expect("Empty Vector").1
                 {
-                    MouseDirection::Down
+                    SwipeDirection::Down
                 } else {
-                    MouseDirection::Up
+                    SwipeDirection::Up
                 }
             }
-            FitResult::NoOp => MouseDirection::NoOp,
+            FitResult::NoOp => SwipeDirection::NoOp,
         }
     }
 }
@@ -139,7 +142,7 @@ fn main() {
 
     app.init_resource::<GameWithMenuResource>();
 
-    app.init_resource::<MousePositions>();
+    app.init_resource::<TouchPositions>();
 
     app.init_resource::<Entities>();
 
@@ -428,7 +431,7 @@ fn draw_frame(
 
 fn touch_system(
     touches: Res<Touches>,
-    mut mouse_positions: ResMut<MousePositions>,
+    mut mouse_positions: ResMut<TouchPositions>,
     mut game_with_menu: ResMut<GameWithMenuResource>,
 ) {
     match touches.iter().next() {
@@ -443,13 +446,12 @@ fn touch_system(
         }
         None => {
             match mouse_positions.direction() {
-                MouseDirection::Up => game_with_menu.0.up_pressed(),
-                MouseDirection::Down => game_with_menu.0.down_pressed(),
-                MouseDirection::Left => game_with_menu.0.left_pressed(),
-                MouseDirection::Right => game_with_menu.0.right_pressed(),
-                MouseDirection::Tap => {}
-                MouseDirection::NoOp => {}
-                MouseDirection::DoubleTap => {
+                SwipeDirection::Up => game_with_menu.0.up_pressed(),
+                SwipeDirection::Down => game_with_menu.0.down_pressed(),
+                SwipeDirection::Left => game_with_menu.0.left_pressed(),
+                SwipeDirection::Right => game_with_menu.0.right_pressed(),
+                SwipeDirection::NoOp => {}
+                SwipeDirection::DoubleTap => {
                     game_with_menu.0.enter_or_space_pressed();
                 }
             }
@@ -462,22 +464,22 @@ fn touch_system(
 mod tests {
     use std::collections::VecDeque;
 
-    use crate::{MouseDirection, MousePositions};
+    use crate::{SwipeDirection, TouchPositions};
 
     #[test]
     fn direction() {
         {
-            let mut mouse_positions = MousePositions::new();
-            assert_eq!(mouse_positions.direction(), MouseDirection::NoOp);
+            let mut mouse_positions = TouchPositions::new();
+            assert_eq!(mouse_positions.direction(), SwipeDirection::NoOp);
         }
         {
-            let mut mouse_positions = MousePositions::new();
+            let mut mouse_positions = TouchPositions::new();
             mouse_positions.mouse_positions.push_back((1., 1.));
-            assert_eq!(mouse_positions.direction(), MouseDirection::Tap);
+            assert_eq!(mouse_positions.direction(), SwipeDirection::NoOp);
         }
 
         {
-            let mut mouse_positions = MousePositions {
+            let mut mouse_positions = TouchPositions {
                 mouse_positions: [
                     (1., 1.),
                     (0., 2.),
@@ -500,7 +502,7 @@ mod tests {
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
 
-            assert_eq!(mouse_positions.direction(), MouseDirection::Down);
+            assert_eq!(mouse_positions.direction(), SwipeDirection::Down);
             let mouse_positions = mouse_positions
                 .mouse_positions
                 .clone()
@@ -508,21 +510,21 @@ mod tests {
                 .rev()
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
-                MousePositions {
+                TouchPositions {
                     mouse_positions,
                     time_of_last_tap: Some(web_time::Instant::now()),
                 }
                 .direction(),
-                MouseDirection::Up
+                SwipeDirection::Up
             );
         }
 
         {
-            let mut mouse_positions = MousePositions {
+            let mut mouse_positions = TouchPositions {
                 mouse_positions: (0..=17).map(|i| (0., i as f32)).collect(),
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
-            assert_eq!(mouse_positions.direction(), MouseDirection::Down);
+            assert_eq!(mouse_positions.direction(), SwipeDirection::Down);
             let mouse_positions = mouse_positions
                 .mouse_positions
                 .clone()
@@ -530,16 +532,16 @@ mod tests {
                 .rev()
                 .collect::<VecDeque<(f32, f32)>>();
             assert_eq!(
-                MousePositions {
+                TouchPositions {
                     mouse_positions,
                     time_of_last_tap: Some(web_time::Instant::now()),
                 }
                 .direction(),
-                MouseDirection::Up
+                SwipeDirection::Up
             );
         }
         {
-            let mut positions = MousePositions {
+            let mut positions = TouchPositions {
                 mouse_positions: [
                     (3., 1.),
                     (4., 2.),
@@ -562,7 +564,7 @@ mod tests {
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
 
-            assert_eq!(positions.direction(), MouseDirection::Right);
+            assert_eq!(positions.direction(), SwipeDirection::Right);
 
             let mouse_positions: VecDeque<(f32, f32)> = positions
                 .mouse_positions
@@ -570,15 +572,15 @@ mod tests {
                 .into_iter()
                 .rev()
                 .collect();
-            let mut mouse_positions = MousePositions {
+            let mut mouse_positions = TouchPositions {
                 mouse_positions,
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
-            assert_eq!(mouse_positions.direction(), MouseDirection::Left)
+            assert_eq!(mouse_positions.direction(), SwipeDirection::Left)
         }
 
         {
-            let mut positions = MousePositions {
+            let mut positions = TouchPositions {
                 mouse_positions: [
                     (3., 1.),
                     (4., 1.),
@@ -601,7 +603,7 @@ mod tests {
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
 
-            assert_eq!(positions.direction(), MouseDirection::Right);
+            assert_eq!(positions.direction(), SwipeDirection::Right);
 
             let mouse_positions: VecDeque<(f32, f32)> = positions
                 .mouse_positions
@@ -609,11 +611,11 @@ mod tests {
                 .into_iter()
                 .rev()
                 .collect();
-            let mut mouse_positions = MousePositions {
+            let mut mouse_positions = TouchPositions {
                 mouse_positions,
                 time_of_last_tap: Some(web_time::Instant::now()),
             };
-            assert_eq!(mouse_positions.direction(), MouseDirection::Left)
+            assert_eq!(mouse_positions.direction(), SwipeDirection::Left)
         }
     }
 }
