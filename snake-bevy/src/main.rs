@@ -103,22 +103,20 @@ impl MousePositions {
                     if self.mouse_positions.front().expect("Empty Vector").0
                         < self.mouse_positions.back().expect("Empty Vector").0
                     {
-                        return MouseDirection::Right;
+                        MouseDirection::Right
                     } else {
-                        return MouseDirection::Left;
+                        MouseDirection::Left
                     }
                 } else if self.mouse_positions.front().expect("Empty Vector").1
                     < self.mouse_positions.back().expect("Empty Vector").1
                 {
                     MouseDirection::Down
+                } else if self.mouse_positions.front().expect("Empty Vector").1
+                    < self.mouse_positions.back().expect("Empty Vector").1
+                {
+                    MouseDirection::Down
                 } else {
-                    if self.mouse_positions.front().expect("Empty Vector").1
-                        < self.mouse_positions.back().expect("Empty Vector").1
-                    {
-                        return MouseDirection::Down;
-                    } else {
-                        return MouseDirection::Up;
-                    }
+                    MouseDirection::Up
                 }
             }
             FitResult::InfinitySlope => {
