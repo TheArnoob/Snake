@@ -1,3 +1,5 @@
+const DOUBLE_TAP_TIMEOUT: u64 = 500;
+
 use bevy::platform::time::Instant;
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -25,8 +27,6 @@ enum SwipeDirection {
     NoOp,
     DoubleTap,
 }
-
-const TAP_TIME_DIFFERENCE: usize = 500;
 
 #[derive(Debug)]
 enum FitResult {
@@ -87,7 +87,7 @@ impl TouchPositions {
                 match self.time_of_last_tap {
                     Some(time_of_last_tap) => {
                         if Instant::now() - time_of_last_tap
-                            < Duration::from_millis(TAP_TIME_DIFFERENCE as u64)
+                            < Duration::from_millis(DOUBLE_TAP_TIMEOUT)
                         {
                             self.time_of_last_tap = None;
 
