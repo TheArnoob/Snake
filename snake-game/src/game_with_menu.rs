@@ -83,6 +83,10 @@ impl GameWithMenu {
                     Difficulty::Extreme => GameDifficulty::Extreme,
                     Difficulty::Insane => GameDifficulty::Insane,
                     Difficulty::VeryEasy => GameDifficulty::VeryEasy,
+                    Difficulty::Intermediate => GameDifficulty::Intermediate,
+                    Difficulty::Expert => GameDifficulty::Expert,
+                    Difficulty::Basic => GameDifficulty::Basic,
+                    Difficulty::VeryHard => GameDifficulty::VeryHard,
                 };
 
                 if self.game.is_over() {
@@ -103,6 +107,10 @@ impl GameWithMenu {
                             Difficulty::Extreme => GameDifficulty::Extreme,
                             Difficulty::Insane => GameDifficulty::Insane,
                             Difficulty::VeryEasy => GameDifficulty::VeryEasy,
+                            Difficulty::Intermediate => GameDifficulty::Intermediate,
+                            Difficulty::Expert => GameDifficulty::Expert,
+                            Difficulty::Basic => GameDifficulty::Basic,
+                            Difficulty::VeryHard => GameDifficulty::VeryHard,
                         };
                         self.game = SnakeGame::new(difficulty);
                         self.game_or_menu = GameOrMenu::InGame;

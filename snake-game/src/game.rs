@@ -33,7 +33,11 @@ pub enum GameDifficulty {
     Hard,
     Normal,
     Easy,
+    Basic,
+    VeryHard,
     Extreme,
+    Intermediate,
+    Expert,
     Insane,
     VeryEasy,
 }
@@ -41,10 +45,14 @@ pub enum GameDifficulty {
 impl GameDifficulty {
     pub const TIMESTEP_NORMAL: Duration = Duration::from_millis(100);
     pub const TIMESTEP_EASY: Duration = Duration::from_millis(200);
-    pub const TIMESTEP_HARD: Duration = Duration::from_millis(50);
-    pub const TIMESTEP_EXTREME: Duration = Duration::from_millis(40);
-    pub const TIMESTEP_INSANE: Duration = Duration::from_millis(30);
+    pub const TIMESTEP_HARD: Duration = Duration::from_millis(75);
+    pub const TIMESTEP_EXTREME: Duration = Duration::from_millis(35);
+    pub const TIMESTEP_INSANE: Duration = Duration::from_millis(20);
     pub const TIMESTEP_VERYEASY: Duration = Duration::from_millis(400);
+    pub const TIMESTEP_EXPERT: Duration = Duration::from_millis(10);
+    pub const TIMESTEP_INTERMEDIATE: Duration = Duration::from_millis(60);
+    pub const TIMESTEP_BASIC: Duration = Duration::from_millis(150);
+    pub const TIMESTEP_VERYHARD: Duration = Duration::from_millis(30);
 
     pub fn timestep(&self) -> Duration {
         match self {
@@ -54,6 +62,10 @@ impl GameDifficulty {
             GameDifficulty::Extreme => Self::TIMESTEP_EXTREME,
             GameDifficulty::Insane => Self::TIMESTEP_INSANE,
             GameDifficulty::VeryEasy => Self::TIMESTEP_VERYEASY,
+            GameDifficulty::Intermediate => Self::TIMESTEP_INTERMEDIATE,
+            GameDifficulty::Expert => Self::TIMESTEP_EXPERT,
+            GameDifficulty::Basic => Self::TIMESTEP_BASIC,
+            GameDifficulty::VeryHard => Self::TIMESTEP_VERYHARD,
         }
     }
 
@@ -62,9 +74,13 @@ impl GameDifficulty {
             GameDifficulty::Hard => (35, 35),
             GameDifficulty::Normal => (25, 25),
             GameDifficulty::Easy => (15, 15),
-            GameDifficulty::Extreme => (45, 45),
-            GameDifficulty::Insane => (55, 55),
+            GameDifficulty::Extreme => (70, 70),
+            GameDifficulty::Insane => (85, 85),
             GameDifficulty::VeryEasy => (8, 8),
+            GameDifficulty::Intermediate => (45, 45),
+            GameDifficulty::Expert => (100, 100),
+            GameDifficulty::Basic => (11, 11),
+            GameDifficulty::VeryHard => (55, 55),
         }
     }
 }

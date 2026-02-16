@@ -184,9 +184,13 @@ pub enum Difficulty {
     Easy,
     #[default]
     Normal,
+    Intermediate,
     Hard,
+    Expert,
     Extreme,
     Insane,
+    Basic,
+    VeryHard,
 }
 
 impl Difficulty {
