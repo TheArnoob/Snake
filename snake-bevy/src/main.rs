@@ -1,12 +1,11 @@
 const DOUBLE_TAP_TIMEOUT: Duration = Duration::from_millis(500);
 
-use bevy::platform::time::Instant;
 use std::collections::BTreeMap;
 use web_time::Duration;
 
 use bevy::{
-    asset::load_internal_binary_asset, input::common_conditions::input_just_pressed, prelude::*,
-    sprite::Text2dShadow,
+    asset::load_internal_binary_asset, input::common_conditions::input_just_pressed,
+    platform::time::Instant, prelude::*, sprite::Text2dShadow,
 };
 
 use snake_game::{game_with_menu::GameWithMenu, traits::DrawableOn};
@@ -93,29 +92,29 @@ impl TouchPositions {
             }
         };
 
-        let position_x = mouse_positions_x as f32;
-        let position_y = mouse_positions_y as f32;
-        let x_extent_third = X_EXTENT / 3.;
-        let y_extent_third = Y_EXTENT / 3.;
+        let position_x = mouse_positions_x as u32;
+        let position_y = mouse_positions_y as u32;
+        let x_extent_third = X_EXTENT / 3;
+        let y_extent_third = Y_EXTENT / 3;
 
-        if (position_x > x_extent_third && position_x < x_extent_third * 2.)
+        if (position_x > x_extent_third && position_x < x_extent_third * 2)
             && (position_y < y_extent_third)
         {
             return SwipeDirection::Up;
-        } else if (position_x < x_extent_third * 2. && position_x > x_extent_third)
-            && (position_y > y_extent_third * 2.)
+        } else if (position_x < x_extent_third * 2 && position_x > x_extent_third)
+            && (position_y > y_extent_third * 2)
         {
             return SwipeDirection::Down;
         } else if (position_x < x_extent_third)
-            && (position_y > y_extent_third && position_y < y_extent_third * 2.)
+            && (position_y > y_extent_third && position_y < y_extent_third * 2)
         {
             return SwipeDirection::Left;
-        } else if (position_x > x_extent_third * 2.)
-            && (position_y > y_extent_third && position_y < y_extent_third * 2.)
+        } else if (position_x > x_extent_third * 2)
+            && (position_y > y_extent_third && position_y < y_extent_third * 2)
         {
             return SwipeDirection::Right;
-        } else if (position_x > x_extent_third && position_x < x_extent_third * 2.)
-            && (position_y < y_extent_third * 2. && position_y > y_extent_third)
+        } else if (position_x > x_extent_third && position_x < x_extent_third * 2)
+            && (position_y < y_extent_third * 2 && position_y > y_extent_third)
         {
             return SwipeDirection::Center;
         } else {
@@ -126,12 +125,18 @@ impl TouchPositions {
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            resolution: (X_EXTENT, Y_EXTENT).into(),
+            resizable: true,
+            ..default()
+        }),
+        ..default()
+    }));
 
     app.init_resource::<GameWithMenuResource>();
 
     app.init_resource::<TouchPositions>();
-
     app.init_resource::<Entities>();
 
     app.add_systems(Startup, setup)
@@ -174,12 +179,19 @@ fn main() {
 
     app.run();
 }
-
-const X_EXTENT: f32 = 1220.;
-const Y_EXTENT: f32 = 620.;
+const X_EXTENT: u32 = 1000;
+const Y_EXTENT: u32 = 600;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    let projection = Projection::Orthographic(OrthographicProjection {
+        scaling_mode: bevy::camera::ScalingMode::Fixed {
+            width: X_EXTENT as f32,
+            height: Y_EXTENT as f32,
+        },
+        ..OrthographicProjection::default_2d()
+    });
+
+    commands.spawn((Camera2d, projection));
 }
 
 fn snake_space_pressed(mut game_with_menu: ResMut<GameWithMenuResource>) {
@@ -243,8 +255,8 @@ struct Frame<'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j> {
 
 impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
     fn draw_text(&mut self, text: &str, color_rgb: (u8, u8, u8), x: usize, y: usize, size: f32) {
-        let text_x = (x as f32) - X_EXTENT / 2.;
-        let text_y = -(y as f32) + Y_EXTENT / 2.;
+        let text_x = x as f32 - (X_EXTENT / 2) as f32;
+        let text_y = -(y as f32) + (Y_EXTENT / 2) as f32;
 
         let text_z = 0f32;
         let text_color = TextColor(Color::linear_rgb(
@@ -257,7 +269,7 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
             Some(t) => {
                 let (mut transform, mut vis, mut color, mut text_comp) =
                     self.text_query.get_mut(t).expect("Cannot fail");
-                transform.translation = Vec3::new(text_x, text_y, text_z);
+                transform.translation = Vec3::new(text_x as f32, text_y as f32, text_z);
                 *vis = Visibility::Visible;
                 *color = text_color;
                 text_comp.0 = text.to_string();
@@ -303,9 +315,10 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
         color_rgb: (u8, u8, u8),
         top_left: (usize, usize),
     ) {
+        // let game_top_left = (-775f32, 465f32);
         //   Position xyz for rectangle
-        let rect_x = (top_left.0 as f32) - X_EXTENT / 2.;
-        let rect_y = -(top_left.1 as f32) + Y_EXTENT / 2.;
+        let rect_x = (top_left.0 as f32) - ((X_EXTENT) / 2) as f32 + size.0 as f32 / 2.;
+        let rect_y = -(top_left.1 as f32) + ((Y_EXTENT) / 2) as f32 - size.1 as f32 / 2.;
         let rect_z = 0.;
         //   This takes the color id from the btreemap and inserts the id if it is not there.
         let color_id = self.entities.materials.entry(color_rgb).or_insert(
@@ -339,7 +352,7 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
                 let (mut transform, mut vis, mut color, mut mesh) =
                     self.rect_query.get_mut(rect).expect("Cannot fail");
                 //   Changing the position to the desired position (See rect_x/y/z)
-                transform.translation = Vec3::new(rect_x, rect_y, rect_z);
+                transform.translation = Vec3::new(rect_x as f32, rect_y as f32, rect_z);
                 //   Making the rectangle visible
                 *vis = Visibility::Visible;
                 *mesh = Mesh2d(rectangle);
@@ -351,11 +364,11 @@ impl DrawableOn for Frame<'_, '_, '_, '_, '_, '_, '_, '_, '_, '_> {
             None => {
                 let rectangle_entity = self.commands.spawn((
                     MeshMaterial2d(color_material_handle),
-                    Transform::from_xyz(rect_x, rect_y, rect_z),
+                    Transform::from_xyz(rect_x as f32, rect_y as f32, rect_z),
                     Mesh2d(rectangle),
                 ));
 
-                //   Adding the drawn rectangle to the used list
+                //   Adding the drawn rectangle to th>e used list
                 self.entities.used_rects.push(rectangle_entity.id());
             }
         }
